@@ -1,0 +1,131 @@
+{% comment %}
+  Social Proof Widget - App Embed Block
+  Displays purchase notification popups and product counters
+
+  ARCHITECTURE: Reads ALL config from metafields - NO API calls needed!
+  Config saved by admin app to: shop.metafields.social_proof.config
+{% endcomment %}
+
+{% comment %} Read config from metafields (saved by admin app) {% endcomment %}
+{% liquid
+  assign metafield_config = shop.metafields.social_proof.config.value
+
+  if metafield_config != blank
+    assign popup_enabled = metafield_config.popupEnabled
+    assign counter_enabled = metafield_config.counterEnabled
+    assign demo_mode = metafield_config.demoMode
+    assign popup_position = metafield_config.popupPosition | default: "BOTTOM_LEFT"
+    assign popup_delay = metafield_config.popupDelay | default: 5
+    assign display_duration = metafield_config.displayDuration | default: 4
+    assign show_on_pages = metafield_config.showOnPages
+    assign demo_activities = metafield_config.demoActivities
+  else
+    assign popup_enabled = true
+    assign counter_enabled = true
+    assign demo_mode = true
+    assign popup_position = "BOTTOM_LEFT"
+    assign popup_delay = 5
+    assign display_duration = 4
+    assign show_on_pages = "product,collection,home,cart" | split: ","
+    assign demo_activities = null
+  endif
+
+  assign current_page_type = request.page_type
+  assign should_show = false
+
+  if current_page_type == 'index'
+    assign mapped_page = 'home'
+  else
+    assign mapped_page = current_page_type
+  endif
+
+  for page in show_on_pages
+    if page == mapped_page
+      assign should_show = true
+      break
+    endif
+  endfor
+%}
+
+{% comment %} Only render if should show on this page {% endcomment %}
+{% if should_show %}
+
+{% comment %} Load CSS {% endcomment %}
+{{ 'social-proof.css' | asset_url | stylesheet_tag }}
+
+{% comment %} Configuration script - ALL DATA from metafields, no API needed! {% endcomment %}
+<script id="social-proof-config" type="application/json">
+{
+  "shopDomain": {{ shop.permanent_domain | json }},
+  "pageType": {{ request.page_type | json }},
+  "productId": {% if product %}{{ product.id | json }}{% else %}null{% endif %},
+  "productTitle": {% if product %}{{ product.title | json }}{% else %}null{% endif %},
+  "settings": {
+    "popupEnabled": {{ popup_enabled | json }},
+    "counterEnabled": {{ counter_enabled | json }},
+    "demoMode": {{ demo_mode | json }},
+    "popupPosition": {{ popup_position | json }},
+    "popupDelay": {{ popup_delay | json }},
+    "displayDuration": {{ display_duration | json }},
+    "showOnPages": {{ show_on_pages | json }}
+  },
+  "demoActivities": {% if demo_activities %}{{ demo_activities | json }}{% else %}[
+    {
+      "id": "demo-1",
+      "productTitle": "Classic Cotton T-Shirt",
+      "productImage": "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png",
+      "city": "New York",
+      "timeAgo": "2 minutes ago"
+    },
+    {
+      "id": "demo-2",
+      "productTitle": "Premium Wireless Earbuds",
+      "productImage": "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-2_large.png",
+      "city": "Los Angeles",
+      "timeAgo": "5 minutes ago"
+    },
+    {
+      "id": "demo-3",
+      "productTitle": "Organic Face Cream",
+      "productImage": "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-3_large.png",
+      "city": "Chicago",
+      "timeAgo": "8 minutes ago"
+    },
+    {
+      "id": "demo-4",
+      "productTitle": "Running Shoes Pro",
+      "productImage": "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-4_large.png",
+      "city": "Houston",
+      "timeAgo": "12 minutes ago"
+    },
+    {
+      "id": "demo-5",
+      "productTitle": "Stainless Steel Watch",
+      "productImage": "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-5_large.png",
+      "city": "Miami",
+      "timeAgo": "15 minutes ago"
+    }
+  ]{% endif %}
+}
+</script>
+
+{% comment %} Container for popup notifications {% endcomment %}
+<div id="social-proof-container" class="{{ popup_position | downcase | replace: '_', '-' }}" style="display: none;"></div>
+
+{% comment %} Counter container for product pages {% endcomment %}
+{% if product and counter_enabled %}
+  <div id="social-proof-counter" style="display: none;"></div>
+{% endif %}
+
+{% comment %} Load JavaScript {% endcomment %}
+<script src="{{ 'social-proof.js' | asset_url }}" defer></script>
+
+{% endif %}
+
+{% schema %}
+{
+  "name": "Social Proof Popups",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

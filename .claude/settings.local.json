@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version:*)",
+      "Bash(node --version)",
+      "Bash(npx shopify:*)",
+      "Bash(npm init:*)",
+      "Bash(npx @shopify/create-app:*)",
+      "Bash(npx degit:*)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma:*)",
+      "Bash(find:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint)",
+      "Bash(npx eslint:*)",
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(gzip:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd QA test checklist for Social Proof Widget\n\nComprehensive manual testing checklist covering code quality, functionality,\nadmin UI, API endpoints, mobile, performance, and theme compatibility.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run:*)",
+      "Bash(npm audit)",
+      "Bash(npm audit fix:*)",
+      "Bash(sqlite3:*)",
+      "Bash(node -e:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

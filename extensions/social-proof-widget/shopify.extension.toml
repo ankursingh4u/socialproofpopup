@@ -1,0 +1,13 @@
+api_version = "2024-01"
+
+[[extensions]]
+name = "Social Proof Widget"
+handle = "social-proof-widget"
+uid = "49d6b37b-3cd8-4025-ea65-2cb405b5a0613f9893a4"
+type = "theme"
+
+  [[extensions.blocks]]
+  type = "app_embed"
+  name = "Social Proof Popups"
+  target = "body"
+  template = "blocks/social-proof.liquid"

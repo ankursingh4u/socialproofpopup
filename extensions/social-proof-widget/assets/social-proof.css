@@ -1,0 +1,500 @@
+/* Social Proof Widget Styles */
+
+/* Popup Container */
+#social-proof-container {
+  position: fixed;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  contain: layout style;
+}
+
+/* Position Variants */
+#social-proof-container.bottom-left {
+  bottom: 20px;
+  left: 20px;
+}
+
+#social-proof-container.bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+#social-proof-container.top-left {
+  top: 20px;
+  left: 20px;
+}
+
+#social-proof-container.top-right {
+  top: 20px;
+  right: 20px;
+}
+
+/* Popup Card */
+.social-proof-popup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
+  padding: 12px 16px;
+  max-width: 340px;
+  min-width: 280px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.social-proof-popup.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Slide-in animations based on position */
+#social-proof-container.bottom-left .social-proof-popup,
+#social-proof-container.top-left .social-proof-popup {
+  transform: translateX(-100%);
+}
+
+#social-proof-container.bottom-left .social-proof-popup.visible,
+#social-proof-container.top-left .social-proof-popup.visible {
+  transform: translateX(0);
+}
+
+#social-proof-container.bottom-right .social-proof-popup,
+#social-proof-container.top-right .social-proof-popup {
+  transform: translateX(100%);
+}
+
+#social-proof-container.bottom-right .social-proof-popup.visible,
+#social-proof-container.top-right .social-proof-popup.visible {
+  transform: translateX(0);
+}
+
+/* Product Image Thumbnail */
+.social-proof-popup__image {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.social-proof-popup__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Content Container */
+.social-proof-popup__content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Title/Product Name */
+.social-proof-popup__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333333;
+  margin: 0 0 4px 0;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Message (Someone purchased) */
+.social-proof-popup__message {
+  font-size: 13px;
+  color: #666666;
+  margin: 0 0 2px 0;
+  line-height: 1.3;
+}
+
+/* Location Text */
+.social-proof-popup__location {
+  font-size: 12px;
+  color: #888888;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Time Ago */
+.social-proof-popup__time {
+  font-size: 11px;
+  color: #aaaaaa;
+  margin: 4px 0 0 0;
+}
+
+/* Close Button */
+.social-proof-popup__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.social-proof-popup:hover .social-proof-popup__close {
+  opacity: 1;
+}
+
+.social-proof-popup__close:hover {
+  opacity: 1;
+}
+
+.social-proof-popup__close svg {
+  width: 12px;
+  height: 12px;
+  color: #999999;
+}
+
+/* Verified Badge */
+.social-proof-popup__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #22c55e;
+  margin-top: 4px;
+}
+
+.social-proof-popup__verified svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Counter - Subtle design with spp- prefix */
+.spp-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  contain: layout style;
+}
+
+.spp-counter.spp-counter--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.spp-counter-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.spp-counter-text {
+  font-size: 13px;
+  color: #666666;
+  line-height: 1.4;
+}
+
+.spp-counter-number {
+  font-weight: 600;
+  color: #333333;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  #social-proof-container {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+  }
+
+  #social-proof-container.top-left,
+  #social-proof-container.top-right {
+    top: 10px !important;
+    bottom: auto !important;
+  }
+
+  .social-proof-popup {
+    max-width: none;
+    min-width: 0;
+  }
+}
+
+/* Dark mode support (if theme has dark mode class) */
+@media (prefers-color-scheme: dark) {
+  .social-proof-popup {
+    background: #1f1f1f;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .social-proof-popup__title {
+    color: #f5f5f5;
+  }
+
+  .social-proof-popup__message {
+    color: #cccccc;
+  }
+
+  .social-proof-popup__location {
+    color: #999999;
+  }
+
+  .social-proof-popup__time {
+    color: #777777;
+  }
+
+  .social-proof-popup__image {
+    background: #333333;
+  }
+
+  /* Dark mode for new counter */
+  .spp-counter-text {
+    color: #aaaaaa;
+  }
+
+  .spp-counter-number {
+    color: #f5f5f5;
+  }
+}
+
+/* Animation for counter pulse effect */
+@keyframes social-proof-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.social-proof-counter--animate {
+  animation: social-proof-pulse 0.5s ease-in-out;
+}
+
+/* Activity Popup - New Structure */
+.spp-popup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  padding: 12px;
+  max-width: 340px;
+  min-width: 280px;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  contain: layout style paint;
+}
+
+/* Position variants - entering state */
+.spp-popup--bottom-left.spp-popup--entering,
+.spp-popup--top-left.spp-popup--entering {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.spp-popup--bottom-right.spp-popup--entering,
+.spp-popup--top-right.spp-popup--entering {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Visible state - all positions */
+.spp-popup--visible {
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+/* Exiting state - position specific */
+.spp-popup--bottom-left.spp-popup--exiting,
+.spp-popup--top-left.spp-popup--exiting {
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+}
+
+.spp-popup--bottom-right.spp-popup--exiting,
+.spp-popup--top-right.spp-popup--exiting {
+  transform: translateX(100%);
+  opacity: 0;
+  transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+}
+
+/* Performance: Prepare GPU for animations */
+.spp-popup--entering,
+.spp-popup--exiting {
+  will-change: transform, opacity;
+}
+
+.spp-counter {
+  will-change: transform, opacity;
+}
+
+/* Reset will-change after animation completes */
+.spp-popup--visible,
+.spp-counter--visible {
+  will-change: auto;
+}
+
+/* Close button */
+.spp-popup-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  color: #999;
+  line-height: 1;
+}
+
+.spp-popup-close:hover {
+  color: #666;
+}
+
+/* Content layout */
+.spp-popup-content {
+  display: flex;
+  gap: 12px;
+}
+
+.spp-popup-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f5f5f5;
+}
+
+.spp-popup-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.spp-popup-title,
+.spp-popup-product,
+.spp-popup-time {
+  margin: 0;
+}
+
+.spp-popup-title {
+  font-size: 13px;
+  color: #666;
+}
+
+.spp-popup-product {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spp-popup-time {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 4px;
+}
+
+/* Verified badge */
+.spp-popup-verified {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #22c55e;
+  margin-top: 8px;
+}
+
+.spp-verified-icon {
+  font-weight: bold;
+}
+
+/* Responsive - Mobile */
+@media (max-width: 480px) {
+  .spp-popup {
+    max-width: calc(100vw - 32px);
+    min-width: 0;
+    margin: 0 16px;
+  }
+
+  .spp-popup-image {
+    width: 50px;
+    height: 50px;
+  }
+
+  .spp-popup-title {
+    font-size: 12px;
+  }
+
+  .spp-popup-product {
+    font-size: 13px;
+  }
+
+  .spp-popup-time {
+    font-size: 10px;
+  }
+
+  .spp-popup-verified {
+    font-size: 10px;
+  }
+}
+
+/* Dark mode support for new popup */
+@media (prefers-color-scheme: dark) {
+  .spp-popup {
+    background: #1a1a1a;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .spp-popup-image {
+    background: #2a2a2a;
+  }
+
+  .spp-popup-title {
+    color: #b0b0b0;
+  }
+
+  .spp-popup-title strong {
+    color: #ffffff;
+  }
+
+  .spp-popup-product {
+    color: #f5f5f5;
+  }
+
+  .spp-popup-time {
+    color: #707070;
+  }
+
+  .spp-popup-close {
+    color: #707070;
+  }
+
+  .spp-popup-close:hover {
+    color: #b0b0b0;
+  }
+
+  .spp-popup-verified {
+    color: #22c55e;
+  }
+}
