@@ -298,3 +298,89 @@ export async function updateSettings(
 ): Promise<{ success: boolean; errors?: string[] }> {
   return setConfig(admin, settings);
 }
+
+/**
+ * GraphQL mutation to create metafield definition
+ */
+const CREATE_METAFIELD_DEFINITION = `#graphql
+  mutation CreateMetafieldDefinition($definition: MetafieldDefinitionInput!) {
+    metafieldDefinitionCreate(definition: $definition) {
+      createdDefinition {
+        id
+        name
+        namespace
+        key
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+`;
+
+interface MetafieldDefinitionCreateResponse {
+  metafieldDefinitionCreate: {
+    createdDefinition: {
+      id: string;
+      name: string;
+      namespace: string;
+      key: string;
+    } | null;
+    userErrors: Array<{
+      field: string[];
+      message: string;
+      code: string;
+    }>;
+  };
+}
+
+/**
+ * Ensure the metafield definition exists with storefront access enabled.
+ * This is required for Liquid templates to access the metafield via shop.metafields.
+ * Should be called on app authentication/installation.
+ */
+export async function ensureMetafieldDefinition(admin: AdminClient): Promise<void> {
+  try {
+    const response = await admin.graphql(CREATE_METAFIELD_DEFINITION, {
+      variables: {
+        definition: {
+          name: "Social Proof Config",
+          namespace: METAFIELD_NAMESPACE,
+          key: METAFIELD_KEY,
+          type: METAFIELD_TYPE,
+          ownerType: "SHOP",
+          access: {
+            storefront: "PUBLIC_READ"
+          }
+        }
+      }
+    });
+
+    const json = await response.json() as { errors?: Array<{ message: string }>; data?: MetafieldDefinitionCreateResponse };
+
+    if (json.errors) {
+      console.error("GraphQL errors when creating metafield definition:", json.errors);
+      return;
+    }
+
+    const data = json.data;
+    const userErrors = data?.metafieldDefinitionCreate?.userErrors;
+
+    if (userErrors && userErrors.length > 0) {
+      // TAKEN error code means definition already exists - this is expected and fine
+      const alreadyExists = userErrors.some(e => e.code === "TAKEN");
+      if (!alreadyExists) {
+        console.error("User errors when creating metafield definition:", userErrors);
+      }
+      return;
+    }
+
+    if (data?.metafieldDefinitionCreate?.createdDefinition) {
+      console.log("Metafield definition created successfully:", data.metafieldDefinitionCreate.createdDefinition);
+    }
+  } catch (error) {
+    console.error("Error ensuring metafield definition:", error);
+  }
+}

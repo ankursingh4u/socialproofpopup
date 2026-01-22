@@ -14,9 +14,19 @@ import {
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { ensureMetafieldDefinition, getConfig, setConfig, DEFAULT_CONFIG } from "../lib/metafields.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
+
+  // Ensure metafield definition exists with storefront access
+  await ensureMetafieldDefinition(admin);
+
+  // Initialize metafield config if it doesn't have demoActivities
+  const currentConfig = await getConfig(admin);
+  if (!currentConfig.demoActivities || currentConfig.demoActivities.length === 0) {
+    await setConfig(admin, DEFAULT_CONFIG);
+  }
   const shopDomain = session.shop;
 
   // Find or create shop record

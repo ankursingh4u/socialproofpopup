@@ -2,7 +2,7 @@
 
 client_id = "f113a1dded36139ac4cdc4ad43dbc119"
 name = "Trust Badge Builder"
-application_url = "https://example.com"
+application_url = "https://socailproofpopups.vercel.app"
 embedded = true
 
 [webhooks]
@@ -25,10 +25,10 @@ api_version = "2026-04"
 scopes = "read_themes,read_orders,read_products"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://socailproofpopups.vercel.app/auth/callback" ]
 
 [app_proxy]
-url = "https://example.com"
+url = "https://socailproofpopups.vercel.app"
 subpath = "social-proof"
 prefix = "/apps"
 

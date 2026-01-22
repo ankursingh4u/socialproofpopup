@@ -22,10 +22,14 @@ import {
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { getConfig, setConfig, type SocialProofConfig } from "../lib/metafields.server";
+import { getConfig, setConfig, ensureMetafieldDefinition, type SocialProofConfig } from "../lib/metafields.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
+
+  // Ensure metafield definition exists with storefront access
+  // This enables Liquid templates to read shop.metafields.social_proof.config
+  await ensureMetafieldDefinition(admin);
 
   // Get config from metafields (no database needed for settings!)
   const config = await getConfig(admin);
