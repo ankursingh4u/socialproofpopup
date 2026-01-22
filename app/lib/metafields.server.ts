@@ -247,17 +247,15 @@ export async function setConfig(
     const shopId = await getShopId(admin);
 
     const response = await admin.graphql(SET_CONFIG_MUTATION, {
-      variables: {
-        metafields: [
-          {
-            ownerId: shopId,
-            namespace: METAFIELD_NAMESPACE,
-            key: METAFIELD_KEY,
-            type: METAFIELD_TYPE,
-            value: JSON.stringify(updatedConfig),
-          },
-        ],
-      },
+      metafields: [
+        {
+          ownerId: shopId,
+          namespace: METAFIELD_NAMESPACE,
+          key: METAFIELD_KEY,
+          type: METAFIELD_TYPE,
+          value: JSON.stringify(updatedConfig),
+        },
+      ],
     });
 
     const json = await response.json() as { errors?: Array<{ message: string }>; data?: MetafieldsSetResponse };
@@ -344,16 +342,14 @@ interface MetafieldDefinitionCreateResponse {
 export async function ensureMetafieldDefinition(admin: AdminClient): Promise<void> {
   try {
     const response = await admin.graphql(CREATE_METAFIELD_DEFINITION, {
-      variables: {
-        definition: {
-          name: "Social Proof Config",
-          namespace: METAFIELD_NAMESPACE,
-          key: METAFIELD_KEY,
-          type: METAFIELD_TYPE,
-          ownerType: "SHOP",
-          access: {
-            storefront: "PUBLIC_READ"
-          }
+      definition: {
+        name: "Social Proof Config",
+        namespace: METAFIELD_NAMESPACE,
+        key: METAFIELD_KEY,
+        type: METAFIELD_TYPE,
+        ownerType: "SHOP",
+        access: {
+          storefront: "PUBLIC_READ"
         }
       }
     });
