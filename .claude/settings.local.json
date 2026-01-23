@@ -28,7 +28,22 @@
       "Bash(sqlite3:*)",
       "Bash(node -e:*)",
       "Bash(curl:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(winget install:*)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel login)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nConfigure Vercel deployment URLs\n\nUpdate shopify.app.toml with production Vercel URLs:\n- application_url: https://socailproofpopups.vercel.app\n- redirect_urls: https://socailproofpopups.vercel.app/auth/callback\n- app_proxy.url: https://socailproofpopups.vercel.app\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(shopify app deploy:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel link:*)",
+      "Bash(printf:*)",
+      "Bash(git commit:*)",
+      "Bash(vercel:*)",
+      "Bash(npm show:*)"
     ]
   }
 }

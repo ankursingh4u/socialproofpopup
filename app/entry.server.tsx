@@ -17,6 +17,15 @@ export default async function handleRequest(
   remixContext: EntryContext
 ) {
   addDocumentResponseHeaders(request, responseHeaders);
+
+  // Testing code starts here
+  responseHeaders.delete("X-Frame-Options");
+  responseHeaders.set(
+    "Content-Security-Policy",
+    "frame-ancestors https://admin.shopify.com https://*.myshopify.com"
+  );
+  // Testing code ends here
+
   const userAgent = request.headers.get("user-agent");
   const callbackName = isbot(userAgent ?? '')
     ? "onAllReady"
