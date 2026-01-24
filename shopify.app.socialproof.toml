@@ -1,0 +1,19 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "2f337c3c71eebed6e4fd9549f70c48fb"
+name = "socialproof"
+application_url = "https://socialproof-app.vercel.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "socialproof-2.myshopify.com"
+
+[webhooks]
+api_version = "2026-04"
+
+[access_scopes]
+scopes = "read_orders,read_products,read_themes"
+
+[auth]
+redirect_urls = [ "https://socialproof-app.vercel.app/auth/callback" ]

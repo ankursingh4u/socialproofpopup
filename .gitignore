@@ -25,3 +25,4 @@ pnpm-lock.yaml
 .shopify.lock
 
 .vercel
+.env*.local

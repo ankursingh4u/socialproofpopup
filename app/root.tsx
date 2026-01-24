@@ -6,10 +6,6 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
-// Testing code starts here
-import { AppProvider } from "@shopify/shopify-app-remix/react";
-// Testing code ends here
-
 export default function App() {
   return (
     <html>
@@ -25,10 +21,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <AppProvider>
-          <Outlet />
-        </AppProvider>
-
+        <Outlet />
         <ScrollRestoration />
         <Scripts />
       </body>

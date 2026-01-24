@@ -66,6 +66,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     // Save to metafields via GraphQL (no database!)
+    console.log("[Settings] Saving config:", {
+      popupEnabled,
+      counterEnabled,
+      demoMode,
+      popupPosition,
+      popupDelay,
+      displayDuration,
+      showOnPages,
+    });
+
     const result = await setConfig(admin, {
       popupEnabled,
       counterEnabled,
@@ -76,16 +86,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       showOnPages,
     });
 
+    console.log("[Settings] Save result:", result);
+
     if (result.success) {
       return json<ActionData>({ success: true });
     } else {
+      console.error("[Settings] Save failed:", result.errors);
       return json<ActionData>({
         success: false,
         error: result.errors?.join(", ") || "Failed to save settings"
       });
     }
   } catch (error) {
-    console.error("Error saving settings:", error);
+    console.error("[Settings] Error saving settings:", error);
     return json<ActionData>({ success: false, error: "Failed to save settings" });
   }
 };
