@@ -1,0 +1,20 @@
+name: Sync to Vercel Repo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Vercel repo
+        run: |
+          git remote add vercel-repo https://${{ secrets.VERCEL_REPO_TOKEN }}@github.com/ankur4work/socialproof-app.git
+          git push vercel-repo main --force
