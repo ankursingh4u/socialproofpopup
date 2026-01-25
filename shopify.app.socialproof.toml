@@ -2,7 +2,7 @@
 
 client_id = "2f337c3c71eebed6e4fd9549f70c48fb"
 name = "socialproof"
-application_url = "https://ankur-sp-app.vercel.app"
+application_url = "https://sp-popup.vercel.app"
 embedded = true
 
 [build]
@@ -16,4 +16,4 @@ api_version = "2026-04"
 scopes = "read_orders,read_products,read_themes"
 
 [auth]
-redirect_urls = [ "https://ankur-sp-app.vercel.app/auth/callback" ]
+redirect_urls = [ "https://sp-popup.vercel.app/auth/callback" ]
