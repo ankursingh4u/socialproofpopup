@@ -79,7 +79,7 @@
     "displayDuration": {{ display_duration | json }},
     "showOnPages": {{ show_on_pages | json }}
   },
-  "demoActivities": {% if demo_mode %}{% if demo_activities %}{{ demo_activities | json }}{% else %}[
+  "demoActivities": {% if demo_activities and demo_activities.size > 0 %}{{ demo_activities | json }}{% elsif demo_mode %}[
     {
       "id": "demo-1",
       "productTitle": "Classic Cotton T-Shirt",
@@ -115,7 +115,7 @@
       "city": "Miami",
       "timeAgo": "15 minutes ago"
     }
-  ]{% endif %}{% else %}[]{% endif %}
+  ]{% else %}[]{% endif %}
 }
 </script>
 
