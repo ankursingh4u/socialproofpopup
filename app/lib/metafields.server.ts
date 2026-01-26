@@ -369,8 +369,8 @@ export async function syncActivitiesToMetafield(
     let activities: DemoActivity[];
 
     if (isPro && realActivities.length > 0 && !demoMode) {
-      // Pro user with real data and demo mode off - use real activities
-      activities = realActivities.slice(0, 10).map(a => ({
+      // Pro user with real data and demo mode off - use real activities (max 50)
+      activities = realActivities.slice(0, 50).map(a => ({
         id: a.id,
         productTitle: a.productTitle,
         productImage: a.productImage,

@@ -72,10 +72,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       const shop = session.shop;
 
-      // Fetch recent orders from Shopify
+      // Fetch recent orders from Shopify (max 50)
       const response = await admin.graphql(`
         query {
-          orders(first: 10, sortKey: CREATED_AT, reverse: true) {
+          orders(first: 50, sortKey: CREATED_AT, reverse: true) {
             edges {
               node {
                 id
@@ -164,12 +164,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
 
-      // Sync to metafields if Pro user
+      // Sync to metafields if Pro user (max 50 orders)
       if (hasActivePayment && syncedCount > 0) {
         const recentOrders = await db.recentOrder.findMany({
           where: { shopId: shopRecord.id },
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 50,
           select: {
             id: true,
             productTitle: true,
@@ -253,7 +253,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             const recentOrders = await db.recentOrder.findMany({
               where: { shopId: shopRecord.id },
               orderBy: { createdAt: "desc" },
-              take: 10,
+              take: 50,
               select: {
                 id: true,
                 productTitle: true,
