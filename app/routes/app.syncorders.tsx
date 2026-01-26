@@ -32,7 +32,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  console.log("[SyncOrders] Action started");
+
+  let admin, session;
+  try {
+    const auth = await authenticate.admin(request);
+    admin = auth.admin;
+    session = auth.session;
+    console.log("[SyncOrders] Auth successful, shop:", session.shop);
+  } catch (authError) {
+    console.error("[SyncOrders] Auth failed:", authError);
+    return json({ success: false, error: "Authentication failed" }, { status: 500 });
+  }
+
   const shop = session.shop;
 
   try {
@@ -67,27 +79,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const data = await response.json();
 
     // Log for debugging
-    console.log("Orders API response:", JSON.stringify(data, null, 2));
+    console.log("[SyncOrders] Orders API response received");
 
     if (data.errors) {
-      console.error("GraphQL errors:", data.errors);
+      console.error("[SyncOrders] GraphQL errors:", JSON.stringify(data.errors));
       return json({ success: false, error: data.errors[0]?.message || "GraphQL error" }, { status: 500 });
     }
 
     const orders = data?.data?.orders?.edges || [];
+    console.log("[SyncOrders] Found", orders.length, "orders");
 
     // Get or create shop record
+    console.log("[SyncOrders] Looking for shop record:", shop);
     let shopRecord = await db.shop.findUnique({
       where: { shopDomain: shop },
     });
 
     if (!shopRecord) {
+      console.log("[SyncOrders] Creating new shop record");
       shopRecord = await db.shop.create({
         data: {
           shopDomain: shop,
           accessToken: session.accessToken || "",
         },
       });
+      console.log("[SyncOrders] Shop record created, id:", shopRecord.id);
+    } else {
+      console.log("[SyncOrders] Shop record found, id:", shopRecord.id);
     }
 
     let syncedCount = 0;
