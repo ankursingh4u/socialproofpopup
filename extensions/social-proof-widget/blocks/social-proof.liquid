@@ -19,6 +19,7 @@
     assign display_duration = metafield_config.displayDuration | default: 4
     assign show_on_pages = metafield_config.showOnPages
     assign demo_activities = metafield_config.demoActivities
+    assign is_pro = metafield_config.isPro | default: false
   else
     assign popup_enabled = true
     assign counter_enabled = true
@@ -28,7 +29,16 @@
     assign display_duration = 4
     assign show_on_pages = "product,collection,home,cart" | split: ","
     assign demo_activities = null
+    assign is_pro = false
   endif
+
+  comment
+    Free users: Force demo data regardless of what's stored in metafield
+    This ensures Free users always see hardcoded demo data
+  endcomment
+  unless is_pro
+    assign demo_activities = null
+  endunless
 
   assign current_page_type = request.page_type
   assign should_show = false

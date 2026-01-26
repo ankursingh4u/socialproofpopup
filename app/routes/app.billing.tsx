@@ -43,15 +43,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { billing } = await authenticate.admin(request);
 
-  // Request subscription
+  // Use simple return URL - Shopify handles the rest
+  const returnUrl = `${process.env.SHOPIFY_APP_URL}/app/billing`;
+
+  console.log("[Billing] Return URL:", returnUrl);
+
+  // Request subscription - this will redirect to Shopify's approval page
   await billing.request({
     plan: MONTHLY_PLAN,
     isTest: true,
-    returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
+    returnUrl,
   });
 
-  // billing.request will redirect to Shopify's approval page
-  // This return is just for TypeScript, it won't be reached
   return null;
 };
 
