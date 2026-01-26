@@ -43,7 +43,20 @@
       "Bash(printf:*)",
       "Bash(git commit:*)",
       "Bash(vercel:*)",
-      "Bash(npm show:*)"
+      "Bash(npm show:*)",
+      "Bash(xargs cat:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 10; Get-Content ''C:\\\\Users\\\\ritik\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-ritik-imp-files-work-socialproof-social-proof-popup\\\\tasks\\\\b5845fc.output'' -Tail 40\")",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 10480 -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(shopify app config link:*)",
+      "Bash(shopify app config set:*)",
+      "Bash(shopify app versions list:*)",
+      "Bash(npx vercel logs:*)",
+      "Bash(shopify app webhooks:*)",
+      "Bash(shopify app webhook trigger:*)"
     ]
   }
 }
