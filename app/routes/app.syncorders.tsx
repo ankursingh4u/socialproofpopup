@@ -36,7 +36,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shop = session.shop;
 
   try {
-    // Fetch recent orders from Shopify
+    // Fetch recent orders from Shopify (without protected customer data)
     const response = await admin.graphql(`
       query {
         orders(first: 10, sortKey: CREATED_AT, reverse: true) {
@@ -45,10 +45,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               id
               name
               createdAt
-              shippingAddress {
-                city
-                country
-              }
               lineItems(first: 5) {
                 edges {
                   node {
@@ -69,6 +65,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     `);
 
     const data = await response.json();
+
+    // Log for debugging
+    console.log("Orders API response:", JSON.stringify(data, null, 2));
+
+    if (data.errors) {
+      console.error("GraphQL errors:", data.errors);
+      return json({ success: false, error: data.errors[0]?.message || "GraphQL error" }, { status: 500 });
+    }
+
     const orders = data?.data?.orders?.edges || [];
 
     // Get or create shop record
@@ -90,8 +95,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Process each order
     for (const { node: order } of orders) {
       const orderId = order.id.replace("gid://shopify/Order/", "");
-      const city = order.shippingAddress?.city || "Unknown";
-      const country = order.shippingAddress?.country || "Unknown";
+      // City/country not available without Protected Customer Data access
+      // Using placeholder values for now
+      const city = "Customer";
+      const country = "Location";
 
       for (const { node: item } of order.lineItems.edges) {
         // Check if this order item already exists
