@@ -54,8 +54,8 @@
       // Set up container
       this.setupContainer();
 
-      // Start showing popups if enabled
-      if (this.settings.popupEnabled && this.shouldShowPopups()) {
+      // Start showing popups if enabled and we have activities to show
+      if (this.settings.popupEnabled && this.shouldShowPopups() && this.activityQueue.length > 0) {
         this.scheduleNextPopup(true);
       }
 
