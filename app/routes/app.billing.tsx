@@ -41,23 +41,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  try {
+    const { billing } = await authenticate.admin(request);
 
-  // Get the app URL from the request origin or environment
-  const url = new URL(request.url);
-  const appUrl = process.env.SHOPIFY_APP_URL || `${url.protocol}//${url.host}`;
-  const returnUrl = `${appUrl}/app/billing`;
+    // Get the app URL - prefer env var, fallback to request URL with https
+    let appUrl = process.env.SHOPIFY_APP_URL;
+    if (!appUrl) {
+      const url = new URL(request.url);
+      // Always use https in production
+      appUrl = `https://${url.host}`;
+    }
+    const returnUrl = `${appUrl}/app/billing`;
 
-  console.log("[Billing] Return URL:", returnUrl);
+    console.log("[Billing] Return URL:", returnUrl);
+    console.log("[Billing] SHOPIFY_APP_URL env:", process.env.SHOPIFY_APP_URL);
 
-  // Request subscription - this will redirect to Shopify's approval page
-  await billing.request({
-    plan: MONTHLY_PLAN,
-    isTest: true,
-    returnUrl,
-  });
+    // Request subscription - this will redirect to Shopify's approval page
+    await billing.request({
+      plan: MONTHLY_PLAN,
+      isTest: true,
+      returnUrl,
+    });
 
-  return null;
+    return null;
+  } catch (error) {
+    // billing.request throws a redirect Response on success
+    if (error instanceof Response) {
+      throw error;
+    }
+    console.error("[Billing] Error:", error);
+    throw error;
+  }
 };
 
 export default function BillingPage() {
