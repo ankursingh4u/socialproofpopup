@@ -26,6 +26,8 @@ export interface SocialProofConfig {
   showOnPages: string[];
   // Demo data for showing popups (no API calls needed)
   demoActivities: DemoActivity[];
+  // Pro subscription status - determines if real orders are shown
+  isPro: boolean;
   version: string;
 }
 
@@ -82,6 +84,7 @@ export const DEFAULT_CONFIG: SocialProofConfig = {
       timeAgo: "15 minutes ago",
     },
   ],
+  isPro: false,
   version: "1.0.0",
 };
 
@@ -297,6 +300,103 @@ export async function updateSettings(
   settings: Partial<Omit<SocialProofConfig, "version" | "demoActivities">>
 ): Promise<{ success: boolean; errors?: string[] }> {
   return setConfig(admin, settings);
+}
+
+/**
+ * Activity interface for real orders
+ */
+export interface RealActivity {
+  id: string;
+  productTitle: string;
+  productImage: string;
+  city: string;
+  timeAgo: string;
+}
+
+/**
+ * Format time difference as human-readable string
+ */
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return "recently";
+}
+
+/**
+ * Convert database orders to activity format
+ */
+export function formatOrdersAsActivities(orders: Array<{
+  id: number;
+  productTitle: string;
+  productImage: string;
+  city: string;
+  createdAt: Date;
+}>): RealActivity[] {
+  return orders.map(order => ({
+    id: `order-${order.id}`,
+    productTitle: order.productTitle,
+    productImage: order.productImage,
+    city: order.city,
+    timeAgo: formatTimeAgo(order.createdAt),
+  }));
+}
+
+/**
+ * Sync real activities from database to metafields
+ * This updates the demoActivities field with real order data
+ * For Pro users: syncs real orders
+ * For Free users: always uses demo data
+ */
+export async function syncActivitiesToMetafield(
+  admin: AdminClient,
+  realActivities: RealActivity[],
+  demoMode: boolean = true,
+  isPro: boolean = false
+): Promise<{ success: boolean; errors?: string[] }> {
+  try {
+    // Get current config
+    const currentConfig = await getConfig(admin);
+
+    // Determine which activities to use
+    let activities: DemoActivity[];
+
+    if (isPro && realActivities.length > 0 && !demoMode) {
+      // Pro user with real data and demo mode off - use real activities
+      activities = realActivities.slice(0, 10).map(a => ({
+        id: a.id,
+        productTitle: a.productTitle,
+        productImage: a.productImage,
+        city: a.city,
+        timeAgo: a.timeAgo,
+      }));
+    } else {
+      // Free user OR demo mode on - always use demo data
+      activities = DEFAULT_CONFIG.demoActivities;
+    }
+
+    // Update config with new activities and isPro status
+    const result = await setConfig(admin, {
+      ...currentConfig,
+      demoActivities: activities,
+      isPro,
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Error syncing activities to metafield:", error);
+    return {
+      success: false,
+      errors: [error instanceof Error ? error.message : "Unknown error"],
+    };
+  }
 }
 
 /**

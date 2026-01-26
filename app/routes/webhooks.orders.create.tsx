@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { formatOrdersAsActivities, syncActivitiesToMetafield } from "../lib/metafields.server";
 
 // Placeholder image when product image fetch fails
 const PLACEHOLDER_IMAGE =
@@ -131,6 +132,84 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log(
       `Processed order ${orderPayload.id} with ${orderPayload.line_items.length} items for ${shop}`,
     );
+
+    // Sync real orders to metafields so theme extension shows real data
+    // Only sync for Pro users - Free users always see demo data
+    if (admin) {
+      try {
+        // Check billing status via GraphQL
+        const billingResponse = await admin.graphql(`
+          query {
+            currentAppInstallation {
+              activeSubscriptions {
+                name
+                status
+              }
+            }
+          }
+        `);
+
+        const billingData = await billingResponse.json();
+        const subscriptions = billingData?.data?.currentAppInstallation?.activeSubscriptions || [];
+        const isPro = subscriptions.some(
+          (sub: { name: string; status: string }) =>
+            sub.name === "Pro Monthly" && sub.status === "ACTIVE"
+        );
+
+        // Get shop settings to check demoMode
+        const settings = await db.settings.findUnique({
+          where: { shopId: shopRecord.id },
+          select: { demoMode: true },
+        });
+
+        if (isPro) {
+          // Pro user: sync real orders
+          const recentOrders = await db.recentOrder.findMany({
+            where: { shopId: shopRecord.id },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: {
+              id: true,
+              productTitle: true,
+              productImage: true,
+              city: true,
+              createdAt: true,
+            },
+          });
+
+          const activities = formatOrdersAsActivities(recentOrders);
+          const syncResult = await syncActivitiesToMetafield(
+            admin,
+            activities,
+            settings?.demoMode ?? true,
+            true // isPro = true
+          );
+
+          if (syncResult.success) {
+            console.log(`[Pro] Synced ${activities.length} real activities to metafield for ${shop}`);
+          } else {
+            console.error(`Failed to sync activities to metafield:`, syncResult.errors);
+          }
+        } else {
+          // Free user: sync demo data only (ensure isPro is false in metafield)
+          const syncResult = await syncActivitiesToMetafield(
+            admin,
+            [], // No real activities for Free users
+            true, // Always demo mode
+            false // isPro = false
+          );
+
+          if (syncResult.success) {
+            console.log(`[Free] Synced demo data to metafield for ${shop} (real orders captured but not shown)`);
+          } else {
+            console.error(`Failed to sync demo data to metafield:`, syncResult.errors);
+          }
+        }
+      } catch (syncError) {
+        console.error(`Error syncing activities to metafield for ${shop}:`, syncError);
+        // Don't fail the webhook, just log the error
+      }
+    }
   } catch (error) {
     console.error(`Error processing orders/create webhook for ${shop}:`, error);
     // Still return 200 to prevent Shopify retries

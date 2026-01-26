@@ -6,6 +6,7 @@ import {
   useActionData,
   useSubmit,
   useNavigation,
+  Link,
 } from "@remix-run/react";
 import {
   Page,
@@ -19,13 +20,24 @@ import {
   Text,
   Button,
   Banner,
+  Box,
+  Icon,
+  Badge,
 } from "@shopify/polaris";
+import { LockIcon } from "@shopify/polaris-icons";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
-import { authenticate } from "../shopify.server";
-import { getConfig, setConfig, ensureMetafieldDefinition, type SocialProofConfig } from "../lib/metafields.server";
+import { authenticate, MONTHLY_PLAN } from "../shopify.server";
+import { getConfig, setConfig, ensureMetafieldDefinition, formatOrdersAsActivities, syncActivitiesToMetafield, type SocialProofConfig } from "../lib/metafields.server";
+import db from "../db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
+
+  // Check billing status
+  const { hasActivePayment } = await billing.check({
+    plans: [MONTHLY_PLAN],
+    isTest: true,
+  });
 
   // Ensure metafield definition exists with storefront access
   // This enables Liquid templates to read shop.metafields.social_proof.config
@@ -34,27 +46,40 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get config from metafields (no database needed for settings!)
   const config = await getConfig(admin);
 
-  return json({ settings: config });
+  return json({ settings: config, isPro: hasActivePayment });
 };
 
 type ActionData = { success: true } | { success: false; error: string };
 type PopupPosition = "BOTTOM_LEFT" | "BOTTOM_RIGHT" | "TOP_LEFT" | "TOP_RIGHT";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session, billing } = await authenticate.admin(request);
+
+  // Check billing status
+  const { hasActivePayment } = await billing.check({
+    plans: [MONTHLY_PLAN],
+    isTest: true,
+  });
 
   const formData = await request.formData();
 
-  // Parse form data
+  // Parse form data - enforce defaults for Free users
   const popupEnabled = formData.get("popupEnabled") === "true";
   const counterEnabled = formData.get("counterEnabled") === "true";
-  const demoMode = formData.get("demoMode") === "true";
-  const popupPosition = formData.get("popupPosition") as PopupPosition;
-  const popupDelay = parseInt(formData.get("popupDelay") as string, 10);
-  const displayDuration = parseInt(
-    formData.get("displayDuration") as string,
-    10,
-  );
+
+  // Free users: always demo mode, locked position/timing
+  const demoMode = hasActivePayment
+    ? formData.get("demoMode") === "true"
+    : true;
+  const popupPosition = hasActivePayment
+    ? (formData.get("popupPosition") as PopupPosition)
+    : "BOTTOM_LEFT";
+  const popupDelay = hasActivePayment
+    ? parseInt(formData.get("popupDelay") as string, 10)
+    : 5;
+  const displayDuration = hasActivePayment
+    ? parseInt(formData.get("displayDuration") as string, 10)
+    : 4;
 
   // Build showOnPages array
   const showOnPages: string[] = [];
@@ -89,6 +114,40 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log("[Settings] Save result:", result);
 
     if (result.success) {
+      // Also sync real orders to metafield
+      if (session?.shop) {
+        try {
+          const shopRecord = await db.shop.findUnique({
+            where: { shopDomain: session.shop },
+            select: { id: true },
+          });
+
+          if (shopRecord) {
+            const recentOrders = await db.recentOrder.findMany({
+              where: { shopId: shopRecord.id },
+              orderBy: { createdAt: "desc" },
+              take: 10,
+              select: {
+                id: true,
+                productTitle: true,
+                productImage: true,
+                city: true,
+                createdAt: true,
+              },
+            });
+
+            if (recentOrders.length > 0) {
+              const activities = formatOrdersAsActivities(recentOrders);
+              await syncActivitiesToMetafield(admin, activities, demoMode, hasActivePayment);
+              console.log(`[Settings] Synced ${activities.length} real orders to metafield (isPro: ${hasActivePayment})`);
+            }
+          }
+        } catch (syncError) {
+          console.error("[Settings] Error syncing orders:", syncError);
+          // Don't fail the save, just log the error
+        }
+      }
+
       return json<ActionData>({ success: true });
     } else {
       console.error("[Settings] Save failed:", result.errors);
@@ -111,7 +170,7 @@ const positionOptions = [
 ];
 
 export default function Settings() {
-  const { settings } = useLoaderData<typeof loader>();
+  const { settings, isPro } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -192,6 +251,16 @@ export default function Settings() {
           </Banner>
         )}
 
+        {!isPro && (
+          <Banner
+            title="You're on the Free plan"
+            tone="info"
+            action={{ content: "Upgrade to Pro", url: "/app/billing" }}
+          >
+            <p>Upgrade to Pro for real order data and full customization (position, timing).</p>
+          </Banner>
+        )}
+
         {isDirty && (
           <Banner tone="warning">
             <Text as="p" variant="bodyMd">
@@ -222,14 +291,25 @@ export default function Settings() {
                     setFormState({ ...formState, counterEnabled: checked })
                   }
                 />
-                <Checkbox
-                  label="Demo Mode"
-                  helpText="Show sample popups with fake data for testing purposes"
-                  checked={formState.demoMode}
-                  onChange={(checked) =>
-                    setFormState({ ...formState, demoMode: checked })
-                  }
-                />
+                {isPro ? (
+                  <Checkbox
+                    label="Demo Mode"
+                    helpText="Show sample popups with fake data for testing purposes"
+                    checked={formState.demoMode}
+                    onChange={(checked) =>
+                      setFormState({ ...formState, demoMode: checked })
+                    }
+                  />
+                ) : (
+                  <Box paddingBlockStart="200">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Badge tone="info">Demo Mode Active</Badge>
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        Free plan shows demo data only
+                      </Text>
+                    </InlineStack>
+                  </Box>
+                )}
               </BlockStack>
             </Card>
           </Layout.AnnotatedSection>
@@ -241,10 +321,22 @@ export default function Settings() {
           >
             <Card>
               <BlockStack gap="400">
+                {!isPro && (
+                  <Banner tone="warning">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Icon source={LockIcon} tone="subdued" />
+                      <Text as="span" variant="bodySm">
+                        Customization requires Pro plan.{" "}
+                        <Link to="/app/billing">Upgrade now</Link>
+                      </Text>
+                    </InlineStack>
+                  </Banner>
+                )}
                 <Select
                   label="Position"
                   options={positionOptions}
                   value={formState.popupPosition}
+                  disabled={!isPro}
                   onChange={(value) =>
                     setFormState({
                       ...formState,
@@ -258,6 +350,7 @@ export default function Settings() {
                   min={3}
                   max={15}
                   output
+                  disabled={!isPro}
                   suffix={
                     <Text as="span" variant="bodyMd">
                       {formState.popupDelay} seconds
@@ -276,6 +369,7 @@ export default function Settings() {
                   min={2}
                   max={8}
                   output
+                  disabled={!isPro}
                   suffix={
                     <Text as="span" variant="bodyMd">
                       {formState.displayDuration} seconds
