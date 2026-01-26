@@ -12,6 +12,10 @@ dev_store_url = "socialproof-2.myshopify.com"
 [webhooks]
 api_version = "2026-04"
 
+[[webhooks.subscriptions]]
+topics = [ "orders/create" ]
+uri = "/webhooks/orders/create"
+
 [access_scopes]
 scopes = "read_orders,read_products,read_themes"
 
