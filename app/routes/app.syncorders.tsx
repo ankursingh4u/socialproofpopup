@@ -172,10 +172,12 @@ export default function SyncOrdersPage() {
     <Page>
       <TitleBar title="Sync Orders" />
       <BlockStack gap="500">
-        <Banner tone="info">
+        <Banner tone="warning">
           <p>
-            This page manually syncs orders from Shopify since webhook access requires Protected Customer Data approval.
-            Use this to test if order tracking works.
+            <strong>Protected Customer Data Access Required</strong><br />
+            To sync real orders, you need Shopify's approval for Protected Customer Data access.
+            Go to Partner Dashboard → Apps → socialproof → API access → Request access.
+            Until approved, use <strong>Demo Mode</strong> for popups.
           </p>
         </Banner>
 
