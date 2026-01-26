@@ -1,5 +1,11 @@
 {
   "buildCommand": "npm run build",
   "framework": "remix",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "regions": ["iad1"]
 }
