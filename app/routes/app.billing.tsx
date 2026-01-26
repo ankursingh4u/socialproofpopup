@@ -43,8 +43,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { billing } = await authenticate.admin(request);
 
-  // Use simple return URL - Shopify handles the rest
-  const returnUrl = `${process.env.SHOPIFY_APP_URL}/app/billing`;
+  // Get the app URL from the request origin or environment
+  const url = new URL(request.url);
+  const appUrl = process.env.SHOPIFY_APP_URL || `${url.protocol}//${url.host}`;
+  const returnUrl = `${appUrl}/app/billing`;
 
   console.log("[Billing] Return URL:", returnUrl);
 
