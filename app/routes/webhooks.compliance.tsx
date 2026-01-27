@@ -37,10 +37,18 @@ async function verifyWebhook(request: Request): Promise<{
     .digest("base64");
 
   // Use timing-safe comparison to prevent timing attacks
-  const isValid = crypto.timingSafeEqual(
-    Buffer.from(calculatedHmac, "base64"),
-    Buffer.from(hmacHeader, "base64")
-  );
+  let isValid = false;
+  try {
+    const calculatedBuffer = Buffer.from(calculatedHmac, "base64");
+    const headerBuffer = Buffer.from(hmacHeader, "base64");
+
+    // timingSafeEqual requires buffers of equal length
+    if (calculatedBuffer.length === headerBuffer.length) {
+      isValid = crypto.timingSafeEqual(calculatedBuffer, headerBuffer);
+    }
+  } catch {
+    isValid = false;
+  }
 
   let payload = null;
   try {
