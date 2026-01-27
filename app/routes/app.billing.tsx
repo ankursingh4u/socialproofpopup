@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -55,19 +55,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  try {
+    const { billing } = await authenticate.admin(request);
 
-  // Request subscription - redirects to Shopify approval page
-  await billing.request({
-    plan: MONTHLY_PLAN,
-    isTest: true,
-  });
+    // Request subscription - redirects to Shopify approval page
+    await billing.request({
+      plan: MONTHLY_PLAN,
+      isTest: true,
+    });
 
-  return null;
+    return json({ success: true });
+  } catch (error) {
+    // billing.request throws a redirect on success
+    if (error instanceof Response) {
+      throw error;
+    }
+    console.error("[Billing Action] Error:", error);
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
 };
 
 export default function BillingPage() {
   const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isLoading = navigation.state === "submitting";
@@ -76,13 +89,15 @@ export default function BillingPage() {
     submit({}, { method: "post" });
   };
 
+  const displayError = error || (actionData && 'error' in actionData ? actionData.error : null);
+
   return (
     <Page>
       <TitleBar title="Subscription" />
       <BlockStack gap="500">
-        {error && (
-          <Banner tone="critical" title="Error">
-            <p>{error}</p>
+        {displayError && (
+          <Banner tone="critical" title="Billing Error">
+            <p>{displayError}</p>
           </Banner>
         )}
 
