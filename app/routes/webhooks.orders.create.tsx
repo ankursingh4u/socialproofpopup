@@ -54,7 +54,21 @@ async function fetchProductImage(
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, payload, admin, topic } = await authenticate.webhook(request);
+  let shop: string;
+  let payload: unknown;
+  let admin: Awaited<ReturnType<typeof authenticate.webhook>>["admin"];
+  let topic: string;
+
+  try {
+    const auth = await authenticate.webhook(request);
+    shop = auth.shop;
+    payload = auth.payload;
+    admin = auth.admin;
+    topic = auth.topic;
+  } catch (error) {
+    console.error("Webhook HMAC verification failed:", error);
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
