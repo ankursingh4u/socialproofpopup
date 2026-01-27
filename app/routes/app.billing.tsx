@@ -18,26 +18,41 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate, MONTHLY_PLAN } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  try {
+    const { billing } = await authenticate.admin(request);
 
-  // Check current subscription status
-  const { hasActivePayment, appSubscriptions } = await billing.check({
-    plans: [MONTHLY_PLAN],
-    isTest: true,
-  });
+    // Check current subscription status
+    const { hasActivePayment, appSubscriptions } = await billing.check({
+      plans: [MONTHLY_PLAN],
+      isTest: true,
+    });
 
-  const currentSubscription = appSubscriptions.length > 0 ? appSubscriptions[0] : null;
+    const currentSubscription = appSubscriptions.length > 0 ? appSubscriptions[0] : null;
 
-  return json({
-    hasActivePayment,
-    currentSubscription: currentSubscription
-      ? {
-          name: currentSubscription.name,
-          status: currentSubscription.status,
-          trialDays: currentSubscription.trialDays,
-        }
-      : null,
-  });
+    return json({
+      hasActivePayment,
+      currentSubscription: currentSubscription
+        ? {
+            name: currentSubscription.name,
+            status: currentSubscription.status,
+            trialDays: currentSubscription.trialDays,
+          }
+        : null,
+      error: null,
+    });
+  } catch (error) {
+    console.error("[Billing Loader] Error:", error);
+    // If it's a redirect response, throw it
+    if (error instanceof Response) {
+      throw error;
+    }
+    // Return error state instead of crashing
+    return json({
+      hasActivePayment: false,
+      currentSubscription: null,
+      error: error instanceof Error ? error.message : "Failed to load billing status",
+    });
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -75,7 +90,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function BillingPage() {
-  const { hasActivePayment, currentSubscription } = useLoaderData<typeof loader>();
+  const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
   const submit = useSubmit();
 
   const handleSubscribe = () => {
@@ -86,6 +101,18 @@ export default function BillingPage() {
     <Page>
       <TitleBar title="Subscription" />
       <BlockStack gap="500">
+        {error && (
+          <Card>
+            <BlockStack gap="200">
+              <Text as="h2" variant="headingMd" tone="critical">
+                Error Loading Billing
+              </Text>
+              <Text as="p" variant="bodyMd">
+                {error}
+              </Text>
+            </BlockStack>
+          </Card>
+        )}
         <Layout>
           <Layout.Section>
             <Card>
