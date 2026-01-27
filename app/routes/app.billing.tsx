@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -57,7 +57,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
+    console.log("[Billing Action] Starting...");
     const { billing } = await authenticate.admin(request);
+    console.log("[Billing Action] Authenticated successfully");
 
     // Get the app URL - prefer env var, fallback to request URL with https
     let appUrl = process.env.SHOPIFY_APP_URL;
@@ -68,8 +70,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     const returnUrl = `${appUrl}/app/billing`;
 
-    console.log("[Billing] Return URL:", returnUrl);
-    console.log("[Billing] SHOPIFY_APP_URL env:", process.env.SHOPIFY_APP_URL);
+    console.log("[Billing Action] Return URL:", returnUrl);
+    console.log("[Billing Action] SHOPIFY_APP_URL env:", process.env.SHOPIFY_APP_URL);
+    console.log("[Billing Action] Plan:", MONTHLY_PLAN);
 
     // Request subscription - this will redirect to Shopify's approval page
     await billing.request({
@@ -78,37 +81,45 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       returnUrl,
     });
 
-    return null;
+    return json({ success: true, error: null });
   } catch (error) {
     // billing.request throws a redirect Response on success
     if (error instanceof Response) {
       throw error;
     }
-    console.error("[Billing] Error:", error);
-    throw error;
+    console.error("[Billing Action] Error:", error);
+    console.error("[Billing Action] Error stack:", error instanceof Error ? error.stack : "No stack");
+    // Return error instead of throwing to show in UI
+    return json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to start subscription"
+    });
   }
 };
 
 export default function BillingPage() {
   const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
 
   const handleSubscribe = () => {
     submit({}, { method: "post" });
   };
 
+  const displayError = error || (actionData && 'error' in actionData ? actionData.error : null);
+
   return (
     <Page>
       <TitleBar title="Subscription" />
       <BlockStack gap="500">
-        {error && (
+        {displayError && (
           <Card>
             <BlockStack gap="200">
               <Text as="h2" variant="headingMd" tone="critical">
-                Error Loading Billing
+                Billing Error
               </Text>
               <Text as="p" variant="bodyMd">
-                {error}
+                {displayError}
               </Text>
             </BlockStack>
           </Card>
