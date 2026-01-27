@@ -1,6 +1,6 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -15,14 +15,14 @@ import {
   List,
   Banner,
 } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate, MONTHLY_PLAN } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { billing } = await authenticate.admin(request);
 
-    // Check current subscription status (Managed Pricing - Shopify handles billing)
+    // Check current subscription status
     const { hasActivePayment, appSubscriptions } = await billing.check({
       plans: [MONTHLY_PLAN],
       isTest: true,
@@ -54,18 +54,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 };
 
-// No action needed - Shopify handles billing through App Store (Managed Pricing)
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { billing } = await authenticate.admin(request);
+
+  // For Managed Pricing: billing.request() redirects to Shopify's approval page
+  // The plan details come from Partners Dashboard, not code
+  await billing.request({
+    plan: MONTHLY_PLAN,
+    isTest: true,
+  });
+
+  return null;
+};
 
 export default function BillingPage() {
   const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
-  const shopify = useAppBridge();
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const isLoading = navigation.state === "submitting";
 
-  // Open Shopify App Store subscription page
   const handleSubscribe = () => {
-    // Redirect to app's page in Shopify admin where they can manage subscription
-    shopify.toast.show("Redirecting to subscription page...");
-    // Open the app subscription management in Shopify admin
-    window.open("https://admin.shopify.com/store/socialproof-2/charges/socialproof/pricing_plans", "_blank");
+    submit({}, { method: "post" });
   };
 
   return (
@@ -151,13 +160,19 @@ export default function BillingPage() {
                   </BlockStack>
 
                   <Box paddingBlockStart="400">
-                    <Button variant="primary" size="large" onClick={handleSubscribe} fullWidth>
-                      Upgrade to Pro
+                    <Button
+                      variant="primary"
+                      size="large"
+                      onClick={handleSubscribe}
+                      fullWidth
+                      loading={isLoading}
+                    >
+                      Start 7-Day Free Trial
                     </Button>
                   </Box>
 
                   <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                    You'll be redirected to Shopify to complete your subscription.
+                    Cancel anytime. No commitment required.
                   </Text>
                 </BlockStack>
               </Card>
