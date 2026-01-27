@@ -39,8 +39,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     isTest: true,
   });
 
-  // DEV BYPASS: Treat development stores as Pro for testing/demo
-  const isDevStore = session.shop.includes("socialproof-2") || session.shop.includes(".myshopify.com");
+  // DEV BYPASS: Treat only your specific dev store as Pro for testing/demo
+  const isDevStore = session.shop === "socialproof-2.myshopify.com";
   const isPro = hasActivePayment || isDevStore;
 
   // Ensure metafield definition exists with storefront access
@@ -68,8 +68,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     isTest: true,
   });
 
-  // DEV BYPASS: Treat development stores as Pro for testing/demo
-  const isDevStore = session.shop.includes("socialproof-2") || session.shop.includes(".myshopify.com");
+  // DEV BYPASS: Treat only your specific dev store as Pro for testing/demo
+  const isDevStore = session.shop === "socialproof-2.myshopify.com";
   const isPro = hasActivePayment || isDevStore;
 
   const formData = await request.formData();
