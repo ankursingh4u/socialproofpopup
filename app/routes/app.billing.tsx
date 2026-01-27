@@ -82,17 +82,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
 
     return json({ success: true, error: null });
-  } catch (error) {
+  } catch (error: unknown) {
     // billing.request throws a redirect Response on success
     if (error instanceof Response) {
       throw error;
     }
+
+    // Log full error details
+    console.error("[Billing Action] Error type:", typeof error);
     console.error("[Billing Action] Error:", error);
-    console.error("[Billing Action] Error stack:", error instanceof Error ? error.stack : "No stack");
-    // Return error instead of throwing to show in UI
+    console.error("[Billing Action] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2));
+
+    // Extract detailed error message
+    let errorMessage = "Failed to start subscription";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      console.error("[Billing Action] Error stack:", error.stack);
+      // Check for nested cause
+      if ('cause' in error && error.cause) {
+        console.error("[Billing Action] Error cause:", error.cause);
+        errorMessage += ` - Cause: ${String(error.cause)}`;
+      }
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = JSON.stringify(error);
+    }
+
     return json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to start subscription"
+      error: errorMessage
     });
   }
 };
