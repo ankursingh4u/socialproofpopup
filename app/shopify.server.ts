@@ -18,16 +18,12 @@ const shopify = shopifyApp({
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
-  distribution: AppDistribution.AppStore,
+  distribution: AppDistribution.ShopifyAdmin,
   billing: {
     [MONTHLY_PLAN]: {
-      lineItems: [
-        {
-          interval: BillingInterval.Every30Days,
-          amount: 9.99,
-          currencyCode: "USD",
-        },
-      ],
+      amount: 9.99,
+      currencyCode: "USD",
+      interval: BillingInterval.Every30Days,
       trialDays: 7,
     },
   },
