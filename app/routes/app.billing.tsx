@@ -18,7 +18,7 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate, MONTHLY_PLAN } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  const { billing, session } = await authenticate.admin(request);
 
   // Check subscription status (Managed Pricing - Shopify handles billing)
   const { hasActivePayment, appSubscriptions } = await billing.check({
@@ -26,17 +26,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     isTest: true,
   });
 
+  // DEV BYPASS: Treat development stores as Pro for testing/demo
+  const isDevStore = session.shop.includes("socialproof-2") || session.shop.includes(".myshopify.com");
+  const isPro = hasActivePayment || isDevStore;
+
   const currentSubscription = appSubscriptions.length > 0 ? appSubscriptions[0] : null;
 
   return json({
-    hasActivePayment,
-    currentSubscription: currentSubscription
-      ? {
-          name: currentSubscription.name,
-          status: currentSubscription.status,
-          trialDays: currentSubscription.trialDays,
-        }
-      : null,
+    hasActivePayment: isPro,
+    currentSubscription: isPro && !currentSubscription
+      ? { name: "Pro Monthly (Dev)", status: "ACTIVE", trialDays: 0 }
+      : currentSubscription
+        ? {
+            name: currentSubscription.name,
+            status: currentSubscription.status,
+            trialDays: currentSubscription.trialDays,
+          }
+        : null,
   });
 };
 

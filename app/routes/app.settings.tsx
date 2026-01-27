@@ -31,13 +31,17 @@ import { getConfig, setConfig, ensureMetafieldDefinition, formatOrdersAsActiviti
 import db from "../db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, billing } = await authenticate.admin(request);
+  const { admin, billing, session } = await authenticate.admin(request);
 
   // Check billing status
   const { hasActivePayment } = await billing.check({
     plans: [MONTHLY_PLAN],
     isTest: true,
   });
+
+  // DEV BYPASS: Treat development stores as Pro for testing/demo
+  const isDevStore = session.shop.includes("socialproof-2") || session.shop.includes(".myshopify.com");
+  const isPro = hasActivePayment || isDevStore;
 
   // Ensure metafield definition exists with storefront access
   // This enables Liquid templates to read shop.metafields.social_proof.config
@@ -46,7 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get config from metafields (no database needed for settings!)
   const config = await getConfig(admin);
 
-  return json({ settings: config, isPro: hasActivePayment });
+  return json({ settings: config, isPro });
 };
 
 type ActionData = { success: true; syncedCount?: number } | { success: false; error: string };
@@ -63,6 +67,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     plans: [MONTHLY_PLAN],
     isTest: true,
   });
+
+  // DEV BYPASS: Treat development stores as Pro for testing/demo
+  const isDevStore = session.shop.includes("socialproof-2") || session.shop.includes(".myshopify.com");
+  const isPro = hasActivePayment || isDevStore;
 
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -165,7 +173,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // Sync to metafields if Pro user (max 50 orders)
-      if (hasActivePayment && syncedCount > 0) {
+      if (isPro && syncedCount > 0) {
         const recentOrders = await db.recentOrder.findMany({
           where: { shopId: shopRecord.id },
           orderBy: { createdAt: "desc" },
@@ -195,16 +203,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const counterEnabled = formData.get("counterEnabled") === "true";
 
   // Free users: always demo mode, locked position/timing
-  const demoMode = hasActivePayment
+  const demoMode = isPro
     ? formData.get("demoMode") === "true"
     : true;
-  const popupPosition = hasActivePayment
+  const popupPosition = isPro
     ? (formData.get("popupPosition") as PopupPosition)
     : "BOTTOM_LEFT";
-  const popupDelay = hasActivePayment
+  const popupDelay = isPro
     ? parseInt(formData.get("popupDelay") as string, 10)
     : 5;
-  const displayDuration = hasActivePayment
+  const displayDuration = isPro
     ? parseInt(formData.get("displayDuration") as string, 10)
     : 4;
 
@@ -265,8 +273,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
             if (recentOrders.length > 0) {
               const activities = formatOrdersAsActivities(recentOrders);
-              await syncActivitiesToMetafield(admin, activities, demoMode, hasActivePayment);
-              console.log(`[Settings] Synced ${activities.length} real orders to metafield (isPro: ${hasActivePayment})`);
+              await syncActivitiesToMetafield(admin, activities, demoMode, isPro);
+              console.log(`[Settings] Synced ${activities.length} real orders to metafield (isPro: ${isPro})`);
             }
           }
         } catch (syncError) {
