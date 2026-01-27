@@ -1,6 +1,6 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -54,14 +54,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 };
 
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { billing } = await authenticate.admin(request);
+
+  // Request subscription - redirects to Shopify approval page
+  await billing.request({
+    plan: MONTHLY_PLAN,
+    isTest: true,
+  });
+
+  return null;
+};
+
 export default function BillingPage() {
   const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const isLoading = navigation.state === "submitting";
 
-  // For Managed Pricing: redirect to Shopify admin to manage app subscription
   const handleSubscribe = () => {
-    // This opens the app's charges/subscription page in Shopify admin
-    // Shopify will show the pricing plan from Partners Dashboard
-    window.open("shopify://admin/app/manage", "_top");
+    submit({}, { method: "post" });
   };
 
   return (
@@ -151,9 +163,10 @@ export default function BillingPage() {
                       variant="primary"
                       size="large"
                       onClick={handleSubscribe}
+                      loading={isLoading}
                       fullWidth
                     >
-                      Upgrade to Pro
+                      Start 7-Day Free Trial
                     </Button>
                   </Box>
 
