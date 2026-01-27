@@ -18,14 +18,14 @@ const shopify = shopifyApp({
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
-  distribution: AppDistribution.SingleMerchant,
+  distribution: AppDistribution.AppStore,
   billing: {
     [MONTHLY_PLAN]: {
       lineItems: [
         {
-          interval: BillingInterval.Every30Days,
           amount: 9.99,
           currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
         },
       ],
       trialDays: 7,
@@ -34,7 +34,6 @@ const shopify = shopifyApp({
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,
-    v10_lineItemBilling: true,
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }

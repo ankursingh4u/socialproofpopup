@@ -1,6 +1,6 @@
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { useLoaderData, useSubmit } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -13,94 +13,79 @@ import {
   Box,
   Divider,
   List,
-  Banner,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate, MONTHLY_PLAN } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  try {
-    const { billing } = await authenticate.admin(request);
+  const { billing } = await authenticate.admin(request);
 
-    // Check current subscription status
-    const { hasActivePayment, appSubscriptions } = await billing.check({
-      plans: [MONTHLY_PLAN],
-      isTest: true,
-    });
+  // Check current subscription status
+  const { hasActivePayment, appSubscriptions } = await billing.check({
+    plans: [MONTHLY_PLAN],
+    isTest: true,
+  });
 
-    const currentSubscription = appSubscriptions.length > 0 ? appSubscriptions[0] : null;
+  const currentSubscription = appSubscriptions.length > 0 ? appSubscriptions[0] : null;
 
-    return json({
-      hasActivePayment,
-      currentSubscription: currentSubscription
-        ? {
-            name: currentSubscription.name,
-            status: currentSubscription.status,
-            trialDays: currentSubscription.trialDays,
-          }
-        : null,
-      error: null,
-    });
-  } catch (error) {
-    console.error("[Billing Loader] Error:", error);
-    if (error instanceof Response) {
-      throw error;
-    }
-    return json({
-      hasActivePayment: false,
-      currentSubscription: null,
-      error: error instanceof Error ? error.message : "Failed to load billing status",
-    });
-  }
+  return json({
+    hasActivePayment,
+    currentSubscription: currentSubscription
+      ? {
+          name: currentSubscription.name,
+          status: currentSubscription.status,
+          trialDays: currentSubscription.trialDays,
+        }
+      : null,
+  });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { billing } = await authenticate.admin(request);
 
-    // Request subscription - redirects to Shopify approval page
+    // Get the app URL - prefer env var, fallback to request URL with https
+    let appUrl = process.env.SHOPIFY_APP_URL;
+    if (!appUrl) {
+      const url = new URL(request.url);
+      // Always use https in production
+      appUrl = `https://${url.host}`;
+    }
+    const returnUrl = `${appUrl}/app/billing`;
+
+    console.log("[Billing] Return URL:", returnUrl);
+    console.log("[Billing] SHOPIFY_APP_URL env:", process.env.SHOPIFY_APP_URL);
+
+    // Request subscription - this will redirect to Shopify's approval page
     await billing.request({
       plan: MONTHLY_PLAN,
       isTest: true,
+      returnUrl,
     });
 
-    return json({ success: true });
+    return null;
   } catch (error) {
-    // billing.request throws a redirect on success
+    // billing.request throws a redirect Response on success
     if (error instanceof Response) {
       throw error;
     }
-    console.error("[Billing Action] Error:", error);
-    return json({
-      success: false,
-      error: error instanceof Error ? error.message : String(error)
-    });
+    console.error("[Billing] Error:", error);
+    throw error;
   }
 };
 
 export default function BillingPage() {
-  const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const { hasActivePayment, currentSubscription } = useLoaderData<typeof loader>();
   const submit = useSubmit();
-  const navigation = useNavigation();
-  const isLoading = navigation.state === "submitting";
 
   const handleSubscribe = () => {
     submit({}, { method: "post" });
   };
 
-  const displayError = error || (actionData && 'error' in actionData ? actionData.error : null);
-
   return (
     <Page>
       <TitleBar title="Subscription" />
       <BlockStack gap="500">
-        {displayError && (
-          <Banner tone="critical" title="Billing Error">
-            <p>{displayError}</p>
-          </Banner>
-        )}
-
         <Layout>
           <Layout.Section>
             <Card>
@@ -110,7 +95,7 @@ export default function BillingPage() {
                     Subscription Status
                   </Text>
                   <Badge tone={hasActivePayment ? "success" : "warning"}>
-                    {hasActivePayment ? "Pro Plan Active" : "Free Plan"}
+                    {hasActivePayment ? "Active" : "Inactive"}
                   </Badge>
                 </InlineStack>
 
@@ -124,16 +109,11 @@ export default function BillingPage() {
                         {`Trial: ${currentSubscription.trialDays} days remaining`}
                       </Badge>
                     )}
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Manage your subscription in your Shopify admin billing settings.
-                    </Text>
                   </BlockStack>
                 ) : (
-                  <BlockStack gap="300">
-                    <Text as="p" variant="bodyMd" tone="subdued">
-                      You're on the Free plan. Upgrade to Pro to unlock all features.
-                    </Text>
-                  </BlockStack>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    Subscribe to access all features of Social Proof Popups.
+                  </Text>
                 )}
               </BlockStack>
             </Card>
@@ -165,49 +145,22 @@ export default function BillingPage() {
                       What's included:
                     </Text>
                     <List type="bullet">
-                      <List.Item>Real order notifications (not demo data)</List.Item>
-                      <List.Item>Custom popup position</List.Item>
-                      <List.Item>Custom timing settings</List.Item>
+                      <List.Item>Unlimited social proof popups</List.Item>
+                      <List.Item>Real-time purchase notifications</List.Item>
+                      <List.Item>Full customization options</List.Item>
                       <List.Item>Analytics dashboard</List.Item>
                       <List.Item>Priority support</List.Item>
                     </List>
                   </BlockStack>
 
                   <Box paddingBlockStart="400">
-                    <Button
-                      variant="primary"
-                      size="large"
-                      onClick={handleSubscribe}
-                      loading={isLoading}
-                      fullWidth
-                    >
+                    <Button variant="primary" size="large" onClick={handleSubscribe} fullWidth>
                       Start 7-Day Free Trial
                     </Button>
                   </Box>
 
                   <Text as="p" variant="bodySm" tone="subdued" alignment="center">
                     Cancel anytime. No commitment required.
-                  </Text>
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-          )}
-
-          {hasActivePayment && (
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">
-                    Pro Features Unlocked
-                  </Text>
-                  <List type="bullet">
-                    <List.Item>Real order notifications</List.Item>
-                    <List.Item>Custom popup position</List.Item>
-                    <List.Item>Custom timing settings</List.Item>
-                    <List.Item>Analytics dashboard</List.Item>
-                  </List>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Go to Settings to customize your popups.
                   </Text>
                 </BlockStack>
               </Card>
