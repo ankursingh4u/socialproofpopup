@@ -1,6 +1,6 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -13,15 +13,16 @@ import {
   Box,
   Divider,
   List,
+  Banner,
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
+import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate, MONTHLY_PLAN } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { billing } = await authenticate.admin(request);
 
-    // Check current subscription status
+    // Check current subscription status (Managed Pricing - Shopify handles billing)
     const { hasActivePayment, appSubscriptions } = await billing.check({
       plans: [MONTHLY_PLAN],
       isTest: true,
@@ -42,11 +43,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   } catch (error) {
     console.error("[Billing Loader] Error:", error);
-    // If it's a redirect response, throw it
     if (error instanceof Response) {
       throw error;
     }
-    // Return error state instead of crashing
     return json({
       hasActivePayment: false,
       currentSubscription: null,
@@ -55,92 +54,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  try {
-    console.log("[Billing Action] Starting...");
-    const { billing } = await authenticate.admin(request);
-    console.log("[Billing Action] Authenticated successfully");
-
-    // Get the app URL - prefer env var, fallback to request URL with https
-    let appUrl = process.env.SHOPIFY_APP_URL;
-    if (!appUrl) {
-      const url = new URL(request.url);
-      // Always use https in production
-      appUrl = `https://${url.host}`;
-    }
-    const returnUrl = `${appUrl}/app/billing`;
-
-    console.log("[Billing Action] Return URL:", returnUrl);
-    console.log("[Billing Action] SHOPIFY_APP_URL env:", process.env.SHOPIFY_APP_URL);
-    console.log("[Billing Action] Plan:", MONTHLY_PLAN);
-
-    // Request subscription - this will redirect to Shopify's approval page
-    await billing.request({
-      plan: MONTHLY_PLAN,
-      isTest: true,
-      returnUrl,
-    });
-
-    return json({ success: true, error: null });
-  } catch (error: unknown) {
-    // billing.request throws a redirect Response on success
-    if (error instanceof Response) {
-      throw error;
-    }
-
-    // Log full error details
-    console.error("[Billing Action] Error type:", typeof error);
-    console.error("[Billing Action] Error:", error);
-    console.error("[Billing Action] Error JSON:", JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2));
-
-    // Extract detailed error message
-    let errorMessage = "Failed to start subscription";
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      console.error("[Billing Action] Error stack:", error.stack);
-      // Check for nested cause
-      if ('cause' in error && error.cause) {
-        console.error("[Billing Action] Error cause:", error.cause);
-        errorMessage += ` - Cause: ${String(error.cause)}`;
-      }
-    } else if (typeof error === 'object' && error !== null) {
-      errorMessage = JSON.stringify(error);
-    }
-
-    return json({
-      success: false,
-      error: errorMessage
-    });
-  }
-};
+// No action needed - Shopify handles billing through App Store (Managed Pricing)
 
 export default function BillingPage() {
   const { hasActivePayment, currentSubscription, error } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
-  const submit = useSubmit();
+  const shopify = useAppBridge();
 
+  // Open Shopify App Store subscription page
   const handleSubscribe = () => {
-    submit({}, { method: "post" });
+    // Redirect to app's page in Shopify admin where they can manage subscription
+    shopify.toast.show("Redirecting to subscription page...");
+    // Open the app subscription management in Shopify admin
+    window.open("https://admin.shopify.com/store/socialproof-2/charges/socialproof/pricing_plans", "_blank");
   };
-
-  const displayError = error || (actionData && 'error' in actionData ? actionData.error : null);
 
   return (
     <Page>
       <TitleBar title="Subscription" />
       <BlockStack gap="500">
-        {displayError && (
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd" tone="critical">
-                Billing Error
-              </Text>
-              <Text as="p" variant="bodyMd">
-                {displayError}
-              </Text>
-            </BlockStack>
-          </Card>
+        {error && (
+          <Banner tone="critical" title="Error">
+            <p>{error}</p>
+          </Banner>
         )}
+
         <Layout>
           <Layout.Section>
             <Card>
@@ -150,7 +87,7 @@ export default function BillingPage() {
                     Subscription Status
                   </Text>
                   <Badge tone={hasActivePayment ? "success" : "warning"}>
-                    {hasActivePayment ? "Active" : "Inactive"}
+                    {hasActivePayment ? "Pro Plan Active" : "Free Plan"}
                   </Badge>
                 </InlineStack>
 
@@ -164,11 +101,16 @@ export default function BillingPage() {
                         {`Trial: ${currentSubscription.trialDays} days remaining`}
                       </Badge>
                     )}
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Manage your subscription in your Shopify admin billing settings.
+                    </Text>
                   </BlockStack>
                 ) : (
-                  <Text as="p" variant="bodyMd" tone="subdued">
-                    Subscribe to access all features of Social Proof Popups.
-                  </Text>
+                  <BlockStack gap="300">
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      You're on the Free plan. Upgrade to Pro to unlock all features.
+                    </Text>
+                  </BlockStack>
                 )}
               </BlockStack>
             </Card>
@@ -200,9 +142,9 @@ export default function BillingPage() {
                       What's included:
                     </Text>
                     <List type="bullet">
-                      <List.Item>Unlimited social proof popups</List.Item>
-                      <List.Item>Real-time purchase notifications</List.Item>
-                      <List.Item>Full customization options</List.Item>
+                      <List.Item>Real order notifications (not demo data)</List.Item>
+                      <List.Item>Custom popup position</List.Item>
+                      <List.Item>Custom timing settings</List.Item>
                       <List.Item>Analytics dashboard</List.Item>
                       <List.Item>Priority support</List.Item>
                     </List>
@@ -210,12 +152,33 @@ export default function BillingPage() {
 
                   <Box paddingBlockStart="400">
                     <Button variant="primary" size="large" onClick={handleSubscribe} fullWidth>
-                      Start 7-Day Free Trial
+                      Upgrade to Pro
                     </Button>
                   </Box>
 
                   <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                    Cancel anytime. No commitment required.
+                    You'll be redirected to Shopify to complete your subscription.
+                  </Text>
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          )}
+
+          {hasActivePayment && (
+            <Layout.Section>
+              <Card>
+                <BlockStack gap="300">
+                  <Text as="h2" variant="headingMd">
+                    Pro Features Unlocked
+                  </Text>
+                  <List type="bullet">
+                    <List.Item>Real order notifications</List.Item>
+                    <List.Item>Custom popup position</List.Item>
+                    <List.Item>Custom timing settings</List.Item>
+                    <List.Item>Analytics dashboard</List.Item>
+                  </List>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Go to Settings to customize your popups.
                   </Text>
                 </BlockStack>
               </Card>
