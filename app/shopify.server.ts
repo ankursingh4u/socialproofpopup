@@ -21,15 +21,20 @@ const shopify = shopifyApp({
   distribution: AppDistribution.SingleMerchant,
   billing: {
     [MONTHLY_PLAN]: {
-      amount: 9.99,
-      currencyCode: "USD",
-      interval: BillingInterval.Every30Days,
+      lineItems: [
+        {
+          interval: BillingInterval.Every30Days,
+          amount: 9.99,
+          currencyCode: "USD",
+        },
+      ],
       trialDays: 7,
     },
   },
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     expiringOfflineAccessTokens: true,
+    v10_lineItemBilling: true,
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
