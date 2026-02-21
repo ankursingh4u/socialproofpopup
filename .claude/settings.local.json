@@ -56,7 +56,11 @@
       "Bash(shopify app versions list:*)",
       "Bash(npx vercel logs:*)",
       "Bash(shopify app webhooks:*)",
-      "Bash(shopify app webhook trigger:*)"
+      "Bash(shopify app webhook trigger:*)",
+      "Bash(docker:*)",
+      "Bash(npx remix vite:build)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest run:*)"
     ]
   }
 }

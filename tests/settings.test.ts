@@ -10,7 +10,6 @@ describe("Settings Configuration", () => {
     const defaultSettings = {
       popupEnabled: true,
       counterEnabled: true,
-      demoMode: true,
       popupPosition: "BOTTOM_LEFT",
       popupDelay: 5,
       displayDuration: 4,
@@ -23,10 +22,6 @@ describe("Settings Configuration", () => {
 
     it("should have counter enabled by default", () => {
       expect(defaultSettings.counterEnabled).toBe(true);
-    });
-
-    it("should have demo mode enabled by default", () => {
-      expect(defaultSettings.demoMode).toBe(true);
     });
 
     it("should have BOTTOM_LEFT as default position", () => {

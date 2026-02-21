@@ -52,8 +52,6 @@ model Shop {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   settings     Settings?
-  recentOrders RecentOrder[]
-  productStats ProductStats[]
 }
 
 model Settings {
@@ -62,7 +60,6 @@ model Settings {
   shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   popupEnabled    Boolean       @default(true)
   counterEnabled  Boolean       @default(true)
-  demoMode        Boolean       @default(true)
   popupPosition   PopupPosition @default(BOTTOM_LEFT)
   popupDelay      Int           @default(5)
   displayDuration Int           @default(4)
@@ -71,30 +68,3 @@ model Settings {
   updatedAt       DateTime      @updatedAt
 }
 
-model RecentOrder {
-  id           Int      @id @default(autoincrement())
-  shopId       Int
-  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  orderId      String
-  productTitle String
-  productImage String
-  city         String
-  country      String
-  createdAt    DateTime @default(now())
-
-  @@index([shopId])
-}
-
-model ProductStats {
-  id             Int       @id @default(autoincrement())
-  shopId         Int
-  shop           Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  productId      String
-  purchaseCount  Int       @default(0)
-  lastPurchaseAt DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  @@unique([shopId, productId])
-  @@index([shopId])
-}

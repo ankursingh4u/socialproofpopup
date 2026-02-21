@@ -31,7 +31,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       include: { settings: true },
     });
 
-    // Return default settings (with demo mode) if shop not found
+    // Return default settings if shop not found
     // This allows the widget to work even before merchant opens the admin app
     if (!shop) {
       return json(
@@ -40,7 +40,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           data: {
             popupEnabled: true,
             counterEnabled: true,
-            demoMode: true,
             popupPosition: "BOTTOM_LEFT",
             popupDelay: 5,
             displayDuration: 4,
@@ -61,7 +60,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           data: {
             popupEnabled: true,
             counterEnabled: true,
-            demoMode: true,
             popupPosition: "BOTTOM_LEFT",
             popupDelay: 5,
             displayDuration: 4,
@@ -83,7 +81,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const responseData = {
       popupEnabled: settings.popupEnabled,
       counterEnabled: settings.counterEnabled,
-      demoMode: settings.demoMode,
       popupPosition: settings.popupPosition,
       popupDelay: settings.popupDelay,
       displayDuration: settings.displayDuration,

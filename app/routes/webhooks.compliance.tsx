@@ -78,32 +78,11 @@ async function handleCustomersRedact(shop: string, payload: unknown) {
 
   const customerId = typedPayload?.customer?.id;
   const customerEmail = typedPayload?.customer?.email;
-  const ordersToRedact = typedPayload?.orders_to_redact || [];
 
   console.log(`Customer redact - ID: ${customerId}, email: ${customerEmail}`);
-  console.log(`Orders to redact: ${JSON.stringify(ordersToRedact)}`);
 
-  if (ordersToRedact.length > 0) {
-    const shopRecord = await db.shop.findUnique({
-      where: { shopDomain: shop },
-    });
-
-    if (shopRecord) {
-      // Delete recent orders matching the order IDs
-      const deleteResult = await db.recentOrder.deleteMany({
-        where: {
-          shopId: shopRecord.id,
-          orderId: {
-            in: ordersToRedact.map((id) => String(id)),
-          },
-        },
-      });
-
-      console.log(`Deleted ${deleteResult.count} recent orders for customer redaction`);
-    }
-  }
-
-  console.log(`Customer redact completed for shop: ${shop}`);
+  // This app no longer stores order data, so there is nothing to delete.
+  console.log(`Customer redact completed for shop: ${shop} (no stored order data)`);
 }
 
 /**
@@ -113,7 +92,7 @@ async function handleCustomersRedact(shop: string, payload: unknown) {
 async function handleShopRedact(shop: string, payload: unknown) {
   console.log(`Shop redact payload: ${JSON.stringify(payload)}`);
 
-  // Delete shop record (cascades to RecentOrders, ProductStats, Settings)
+  // Delete shop record (cascades to Settings)
   const shopRecord = await db.shop.findUnique({
     where: { shopDomain: shop },
   });

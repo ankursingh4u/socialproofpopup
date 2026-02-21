@@ -8,6 +8,34 @@ interface AdminClient {
   graphql: (query: string, variables?: Record<string, unknown>) => Promise<Response>;
 }
 
+/**
+ * Activity entry for popup notifications (sourced from real orders)
+ */
+export interface Activity {
+  id: string;
+  productTitle: string;
+  productImage: string;
+  city: string;
+  timeAgo: string;
+}
+
+/**
+ * GraphQL order shape returned by the Admin API orders query
+ */
+export interface OrderLineItem {
+  title: string;
+  image?: { url: string } | null;
+}
+
+export interface ShopifyOrder {
+  id: string;
+  createdAt: string;
+  shippingAddress?: { city?: string; country?: string } | null;
+  lineItems: {
+    nodes: OrderLineItem[];
+  };
+}
+
 // Metafield constants
 export const METAFIELD_NAMESPACE = "social_proof";
 export const METAFIELD_KEY = "config";
@@ -19,71 +47,27 @@ export const METAFIELD_TYPE = "json";
 export interface SocialProofConfig {
   popupEnabled: boolean;
   counterEnabled: boolean;
-  demoMode: boolean;
   popupPosition: "BOTTOM_LEFT" | "BOTTOM_RIGHT" | "TOP_LEFT" | "TOP_RIGHT";
   popupDelay: number;
   displayDuration: number;
   showOnPages: string[];
-  // Demo data for showing popups (no API calls needed)
-  demoActivities: DemoActivity[];
-  // Pro subscription status - determines if real orders are shown
+  // Real order data for popup display
+  activities: Activity[];
+  counterData: Record<string, number>;
+  // Pro subscription status
   isPro: boolean;
   version: string;
-}
-
-export interface DemoActivity {
-  id: string;
-  productTitle: string;
-  productImage: string;
-  city: string;
-  timeAgo: string;
 }
 
 export const DEFAULT_CONFIG: SocialProofConfig = {
   popupEnabled: true,
   counterEnabled: true,
-  demoMode: true,
   popupPosition: "BOTTOM_LEFT",
   popupDelay: 5,
   displayDuration: 4,
   showOnPages: ["product", "collection", "home", "cart"],
-  demoActivities: [
-    {
-      id: "demo-1",
-      productTitle: "Classic Cotton T-Shirt",
-      productImage: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png",
-      city: "New York",
-      timeAgo: "2 minutes ago",
-    },
-    {
-      id: "demo-2",
-      productTitle: "Premium Wireless Earbuds",
-      productImage: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-2_large.png",
-      city: "Los Angeles",
-      timeAgo: "5 minutes ago",
-    },
-    {
-      id: "demo-3",
-      productTitle: "Organic Face Cream",
-      productImage: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-3_large.png",
-      city: "Chicago",
-      timeAgo: "8 minutes ago",
-    },
-    {
-      id: "demo-4",
-      productTitle: "Running Shoes Pro",
-      productImage: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-4_large.png",
-      city: "Houston",
-      timeAgo: "12 minutes ago",
-    },
-    {
-      id: "demo-5",
-      productTitle: "Stainless Steel Watch",
-      productImage: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-5_large.png",
-      city: "Miami",
-      timeAgo: "15 minutes ago",
-    },
-  ],
+  activities: [],
+  counterData: {},
   isPro: false,
   version: "1.0.0",
 };
@@ -293,110 +277,13 @@ export async function setConfig(
 }
 
 /**
- * Update specific settings without overwriting others
+ * Update specific settings without overwriting activities (managed separately via webhook)
  */
 export async function updateSettings(
   admin: AdminClient,
-  settings: Partial<Omit<SocialProofConfig, "version" | "demoActivities">>
+  settings: Partial<Omit<SocialProofConfig, "version" | "activities">>
 ): Promise<{ success: boolean; errors?: string[] }> {
   return setConfig(admin, settings);
-}
-
-/**
- * Activity interface for real orders
- */
-export interface RealActivity {
-  id: string;
-  productTitle: string;
-  productImage: string;
-  city: string;
-  timeAgo: string;
-}
-
-/**
- * Format time difference as human-readable string
- */
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  return "recently";
-}
-
-/**
- * Convert database orders to activity format
- */
-export function formatOrdersAsActivities(orders: Array<{
-  id: number;
-  productTitle: string;
-  productImage: string;
-  city: string;
-  createdAt: Date;
-}>): RealActivity[] {
-  return orders.map(order => ({
-    id: `order-${order.id}`,
-    productTitle: order.productTitle,
-    productImage: order.productImage,
-    city: order.city,
-    timeAgo: formatTimeAgo(order.createdAt),
-  }));
-}
-
-/**
- * Sync real activities from database to metafields
- * This updates the demoActivities field with real order data
- * For Pro users: syncs real orders
- * For Free users: always uses demo data
- */
-export async function syncActivitiesToMetafield(
-  admin: AdminClient,
-  realActivities: RealActivity[],
-  demoMode: boolean = true,
-  isPro: boolean = false
-): Promise<{ success: boolean; errors?: string[] }> {
-  try {
-    // Get current config
-    const currentConfig = await getConfig(admin);
-
-    // Determine which activities to use
-    let activities: DemoActivity[];
-
-    if (isPro && realActivities.length > 0 && !demoMode) {
-      // Pro user with real data and demo mode off - use real activities (max 50)
-      activities = realActivities.slice(0, 50).map(a => ({
-        id: a.id,
-        productTitle: a.productTitle,
-        productImage: a.productImage,
-        city: a.city,
-        timeAgo: a.timeAgo,
-      }));
-    } else {
-      // Free user OR demo mode on - always use demo data
-      activities = DEFAULT_CONFIG.demoActivities;
-    }
-
-    // Update config with new activities and isPro status
-    const result = await setConfig(admin, {
-      ...currentConfig,
-      demoActivities: activities,
-      isPro,
-    });
-
-    return result;
-  } catch (error) {
-    console.error("Error syncing activities to metafield:", error);
-    return {
-      success: false,
-      errors: [error instanceof Error ? error.message : "Unknown error"],
-    };
-  }
 }
 
 /**
@@ -483,4 +370,47 @@ export async function ensureMetafieldDefinition(admin: AdminClient): Promise<voi
   } catch (error) {
     console.error("Error ensuring metafield definition:", error);
   }
+}
+
+/**
+ * Format a date as a human-readable "time ago" string
+ */
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+}
+
+/**
+ * Convert Shopify Admin GraphQL orders into Activity objects for popup display
+ */
+export function formatOrdersAsActivities(orders: ShopifyOrder[]): Activity[] {
+  const activities: Activity[] = [];
+
+  for (const order of orders) {
+    const city =
+      order.shippingAddress?.city ||
+      order.shippingAddress?.country ||
+      "Someone";
+    const timeAgo = formatTimeAgo(new Date(order.createdAt));
+
+    for (const item of order.lineItems.nodes.slice(0, 5)) {
+      activities.push({
+        id: `${order.id}-${item.title}`,
+        productTitle: item.title,
+        productImage: item.image?.url || "",
+        city,
+        timeAgo,
+      });
+    }
+  }
+
+  return activities;
 }

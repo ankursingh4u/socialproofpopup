@@ -20,28 +20,28 @@ import {
   Text,
   Button,
   Banner,
-  Box,
   Icon,
-  Badge,
 } from "@shopify/polaris";
 import { LockIcon } from "@shopify/polaris-icons";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
-import { authenticate, MONTHLY_PLAN } from "../shopify.server";
-import { getConfig, setConfig, ensureMetafieldDefinition, formatOrdersAsActivities, syncActivitiesToMetafield, type SocialProofConfig } from "../lib/metafields.server";
-import db from "../db.server";
+import { authenticate } from "../shopify.server";
+import { checkBilling } from "../lib/billing.server";
+import {
+  getConfig,
+  setConfig,
+  ensureMetafieldDefinition,
+  formatOrdersAsActivities,
+  type SocialProofConfig,
+  type ShopifyOrder,
+} from "../lib/metafields.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, billing, session } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
 
-  // Check billing status
-  const { hasActivePayment } = await billing.check({
-    plans: [MONTHLY_PLAN],
-    isTest: true,
-  });
+  // Check billing status via SDK
+  const { hasSubscription } = await checkBilling(billing);
 
-  // DEV BYPASS: Treat only your specific dev store as Pro for testing/demo
-  const isDevStore = session.shop === "socialproof-2.myshopify.com";
-  const isPro = hasActivePayment || isDevStore;
+  const isPro = hasSubscription;
 
   // Ensure metafield definition exists with storefront access
   // This enables Liquid templates to read shop.metafields.social_proof.config
@@ -50,162 +50,36 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get config from metafields (no database needed for settings!)
   const config = await getConfig(admin);
 
+  // Sync isPro to metafield if it differs from stored config
+  if (config.isPro !== isPro) {
+    const syncResult = await setConfig(admin, { isPro });
+    if (!syncResult.success) {
+      console.error("[Settings] Metafield sync failed:", syncResult.errors);
+    }
+  }
+
   return json({ settings: config, isPro });
 };
 
-type ActionData = { success: true; syncedCount?: number } | { success: false; error: string };
+type ActionData = { success: true } | { success: false; error: string };
 type PopupPosition = "BOTTOM_LEFT" | "BOTTOM_RIGHT" | "TOP_LEFT" | "TOP_RIGHT";
 
-const PLACEHOLDER_IMAGE =
-  "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png";
-
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session, billing } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
 
-  // Check billing status
-  const { hasActivePayment } = await billing.check({
-    plans: [MONTHLY_PLAN],
-    isTest: true,
-  });
+  // Check billing status via SDK
+  const { hasSubscription } = await checkBilling(billing);
 
-  // DEV BYPASS: Treat only your specific dev store as Pro for testing/demo
-  const isDevStore = session.shop === "socialproof-2.myshopify.com";
-  const isPro = hasActivePayment || isDevStore;
+  const isPro = hasSubscription;
 
   const formData = await request.formData();
   const intent = formData.get("intent");
-
-  // Handle sync orders action
-  if (intent === "syncOrders") {
-    try {
-      const shop = session.shop;
-
-      // Fetch recent orders from Shopify (max 50)
-      const response = await admin.graphql(`
-        query {
-          orders(first: 50, sortKey: CREATED_AT, reverse: true) {
-            edges {
-              node {
-                id
-                name
-                createdAt
-                shippingAddress {
-                  city
-                  country
-                }
-                lineItems(first: 5) {
-                  edges {
-                    node {
-                      title
-                      product {
-                        id
-                        featuredImage {
-                          url
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      `);
-
-      const data = await response.json();
-
-      if (data.errors) {
-        console.error("[SyncOrders] GraphQL errors:", data.errors);
-        return json<ActionData>({
-          success: false,
-          error: data.errors[0]?.message || "Failed to fetch orders"
-        });
-      }
-
-      const orders = data?.data?.orders?.edges || [];
-
-      // Get or create shop record
-      let shopRecord = await db.shop.findUnique({
-        where: { shopDomain: shop },
-      });
-
-      if (!shopRecord) {
-        shopRecord = await db.shop.create({
-          data: {
-            shopDomain: shop,
-            accessToken: session.accessToken || "",
-          },
-        });
-      }
-
-      let syncedCount = 0;
-
-      // Process each order
-      for (const { node: order } of orders) {
-        const orderId = order.id.replace("gid://shopify/Order/", "");
-        const city = order.shippingAddress?.city || "Someone";
-        const country = order.shippingAddress?.country || "";
-
-        for (const { node: item } of order.lineItems.edges) {
-          // Check if this order item already exists
-          const existing = await db.recentOrder.findFirst({
-            where: {
-              shopId: shopRecord.id,
-              orderId: orderId,
-              productTitle: item.title,
-            },
-          });
-
-          if (!existing) {
-            await db.recentOrder.create({
-              data: {
-                shopId: shopRecord.id,
-                orderId: orderId,
-                productTitle: item.title,
-                productImage: item.product?.featuredImage?.url || PLACEHOLDER_IMAGE,
-                city: city,
-                country: country,
-              },
-            });
-            syncedCount++;
-          }
-        }
-      }
-
-      // Sync to metafields if Pro user (max 50 orders)
-      if (isPro && syncedCount > 0) {
-        const recentOrders = await db.recentOrder.findMany({
-          where: { shopId: shopRecord.id },
-          orderBy: { createdAt: "desc" },
-          take: 50,
-          select: {
-            id: true,
-            productTitle: true,
-            productImage: true,
-            city: true,
-            createdAt: true,
-          },
-        });
-
-        const activities = formatOrdersAsActivities(recentOrders);
-        await syncActivitiesToMetafield(admin, activities, false, true);
-      }
-
-      return json<ActionData>({ success: true, syncedCount });
-    } catch (error) {
-      console.error("[SyncOrders] Error:", error);
-      return json<ActionData>({ success: false, error: String(error) });
-    }
-  }
 
   // Parse form data - enforce defaults for Free users
   const popupEnabled = formData.get("popupEnabled") === "true";
   const counterEnabled = formData.get("counterEnabled") === "true";
 
-  // Free users: always demo mode, locked position/timing
-  const demoMode = isPro
-    ? formData.get("demoMode") === "true"
-    : true;
+  // Free users: locked position/timing
   const popupPosition = isPro
     ? (formData.get("popupPosition") as PopupPosition)
     : "BOTTOM_LEFT";
@@ -229,7 +103,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log("[Settings] Saving config:", {
       popupEnabled,
       counterEnabled,
-      demoMode,
       popupPosition,
       popupDelay,
       displayDuration,
@@ -239,7 +112,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const result = await setConfig(admin, {
       popupEnabled,
       counterEnabled,
-      demoMode,
       popupPosition,
       popupDelay,
       displayDuration,
@@ -249,38 +121,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log("[Settings] Save result:", result);
 
     if (result.success) {
-      // Also sync real orders to metafield
-      if (session?.shop) {
-        try {
-          const shopRecord = await db.shop.findUnique({
-            where: { shopDomain: session.shop },
-            select: { id: true },
-          });
-
-          if (shopRecord) {
-            const recentOrders = await db.recentOrder.findMany({
-              where: { shopId: shopRecord.id },
-              orderBy: { createdAt: "desc" },
-              take: 50,
-              select: {
-                id: true,
-                productTitle: true,
-                productImage: true,
-                city: true,
-                createdAt: true,
-              },
-            });
-
-            if (recentOrders.length > 0) {
-              const activities = formatOrdersAsActivities(recentOrders);
-              await syncActivitiesToMetafield(admin, activities, demoMode, isPro);
-              console.log(`[Settings] Synced ${activities.length} real orders to metafield (isPro: ${isPro})`);
+      // Populate initial activities from recent orders so popups fire immediately
+      try {
+        const recentOrdersQuery = `#graphql
+          query GetRecentOrders {
+            orders(first: 10, sortKey: CREATED_AT, reverse: true) {
+              nodes {
+                id
+                createdAt
+                shippingAddress {
+                  city
+                  country
+                }
+                lineItems(first: 5) {
+                  nodes {
+                    title
+                    image {
+                      url
+                    }
+                  }
+                }
+              }
             }
           }
-        } catch (syncError) {
-          console.error("[Settings] Error syncing orders:", syncError);
-          // Don't fail the save, just log the error
+        `;
+        const ordersResponse = await admin.graphql(recentOrdersQuery);
+        const ordersJson = await ordersResponse.json() as {
+          data?: { orders?: { nodes: ShopifyOrder[] } };
+        };
+        const recentOrders = ordersJson.data?.orders?.nodes || [];
+
+        if (recentOrders.length > 0) {
+          const newActivities = formatOrdersAsActivities(recentOrders);
+          const currentConfig = await getConfig(admin);
+          const merged = [
+            ...newActivities,
+            ...(currentConfig.activities || []),
+          ].slice(0, 50);
+          await setConfig(admin, { activities: merged });
+          console.log(`[Settings] Synced ${newActivities.length} activities from recent orders`);
         }
+      } catch (activityError) {
+        // Non-fatal: settings were saved successfully; activity sync is best-effort
+        console.error("[Settings] Error syncing initial activities:", activityError);
       }
 
       return json<ActionData>({ success: true });
@@ -318,7 +201,6 @@ export default function Settings() {
   const [formState, setFormState] = useState({
     popupEnabled: settings?.popupEnabled ?? true,
     counterEnabled: settings?.counterEnabled ?? true,
-    demoMode: settings?.demoMode ?? true,
     popupPosition: (settings?.popupPosition ?? "BOTTOM_LEFT") as PopupPosition,
     popupDelay: settings?.popupDelay ?? 5,
     displayDuration: settings?.displayDuration ?? 4,
@@ -339,7 +221,6 @@ export default function Settings() {
     const formData = new FormData();
     formData.append("popupEnabled", String(formState.popupEnabled));
     formData.append("counterEnabled", String(formState.counterEnabled));
-    formData.append("demoMode", String(formState.demoMode));
     formData.append("popupPosition", formState.popupPosition);
     formData.append("popupDelay", String(formState.popupDelay));
     formData.append("displayDuration", String(formState.displayDuration));
@@ -356,22 +237,11 @@ export default function Settings() {
     setFormState(originalState);
   }, [originalState]);
 
-  // Handle sync orders
-  const handleSyncOrders = useCallback(() => {
-    const formData = new FormData();
-    formData.append("intent", "syncOrders");
-    submit(formData, { method: "post" });
-  }, [submit]);
-
   // Show toast and error banner on action result
   useEffect(() => {
     if (actionData) {
       if (actionData.success) {
-        if (actionData.syncedCount !== undefined) {
-          shopify.toast.show(`Synced ${actionData.syncedCount} orders`);
-        } else {
-          shopify.toast.show("Settings saved successfully");
-        }
+        shopify.toast.show("Settings saved successfully");
         setErrorBanner(null);
       } else {
         shopify.toast.show("Failed to save settings", { isError: true });
@@ -403,7 +273,7 @@ export default function Settings() {
             tone="info"
             action={{ content: "Upgrade to Pro", url: "/app/billing" }}
           >
-            <p>Upgrade to Pro for real order data and full customization (position, timing).</p>
+            <p>Upgrade to Pro for full customization options (position, timing).</p>
           </Banner>
         )}
 
@@ -437,39 +307,6 @@ export default function Settings() {
                     setFormState({ ...formState, counterEnabled: checked })
                   }
                 />
-                {isPro ? (
-                  <>
-                    <Checkbox
-                      label="Demo Mode"
-                      helpText="Show sample popups with fake data for testing purposes"
-                      checked={formState.demoMode}
-                      onChange={(checked) =>
-                        setFormState({ ...formState, demoMode: checked })
-                      }
-                    />
-                    {!formState.demoMode && (
-                      <Box paddingBlockStart="200">
-                        <InlineStack gap="300" blockAlign="center">
-                          <Button onClick={handleSyncOrders} loading={isLoading}>
-                            Sync Orders from Shopify
-                          </Button>
-                          <Text as="span" variant="bodySm" tone="subdued">
-                            Pull existing orders to show in popups
-                          </Text>
-                        </InlineStack>
-                      </Box>
-                    )}
-                  </>
-                ) : (
-                  <Box paddingBlockStart="200">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Badge tone="info">Demo Mode Active</Badge>
-                      <Text as="span" variant="bodySm" tone="subdued">
-                        Free plan shows demo data only
-                      </Text>
-                    </InlineStack>
-                  </Box>
-                )}
               </BlockStack>
             </Card>
           </Layout.AnnotatedSection>

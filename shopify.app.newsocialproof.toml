@@ -1,12 +1,13 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "2f337c3c71eebed6e4fd9549f70c48fb"
-name = "socialproof"
-application_url = "https://social-proofpopup.vercel.app"
+client_id = "52f53e414b9d2ce5a9f514f31f6ad00f"
+name = "newsocialproof"
+application_url = "https://example.com"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2025-01"
@@ -16,12 +17,16 @@ api_version = "2025-01"
   uri = "/webhooks/orders/create"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/compliance"
-  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhooks/app-subscriptions-update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app-uninstalled"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_orders,read_products,read_themes"
 
 [auth]
-redirect_urls = [ "https://social-proofpopup.vercel.app/auth/callback" ]
+redirect_urls = [ "https://example.com/api/auth" ]

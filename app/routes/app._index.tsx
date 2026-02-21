@@ -13,20 +13,63 @@ import {
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { checkBilling } from "../lib/billing.server";
 import db from "../db.server";
-import { ensureMetafieldDefinition, getConfig, setConfig, DEFAULT_CONFIG } from "../lib/metafields.server";
+import {
+  ensureMetafieldDefinition, getConfig, setConfig,
+  formatOrdersAsActivities,
+  type ShopifyOrder,
+} from "../lib/metafields.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, billing, session } = await authenticate.admin(request);
 
   // Ensure metafield definition exists with storefront access
   await ensureMetafieldDefinition(admin);
 
-  // Initialize metafield config if it doesn't have demoActivities
+  // Check billing status via SDK
+  const { hasSubscription } = await checkBilling(billing);
+
+  // Sync isPro to metafield if it differs
   const currentConfig = await getConfig(admin);
-  if (!currentConfig.demoActivities || currentConfig.demoActivities.length === 0) {
-    await setConfig(admin, DEFAULT_CONFIG);
+  if (currentConfig.isPro !== hasSubscription) {
+    const syncResult = await setConfig(admin, { isPro: hasSubscription });
+    if (!syncResult.success) {
+      console.error("[Dashboard] Metafield sync failed:", syncResult.errors);
+    }
   }
+
+  // Auto-seed activities from recent orders if metafield is empty.
+  // This fires on every dashboard load until at least one activity exists.
+  if (currentConfig.activities.length === 0) {
+    try {
+      const ordersResponse = await admin.graphql(`#graphql
+        query GetRecentOrders {
+          orders(first: 10, sortKey: CREATED_AT, reverse: true) {
+            nodes {
+              id
+              createdAt
+              shippingAddress { city country }
+              lineItems(first: 5) {
+                nodes { title image { url } }
+              }
+            }
+          }
+        }
+      `);
+      const ordersJson = await ordersResponse.json() as {
+        data?: { orders?: { nodes: ShopifyOrder[] } };
+      };
+      const recentOrders = ordersJson.data?.orders?.nodes ?? [];
+      if (recentOrders.length > 0) {
+        const newActivities = formatOrdersAsActivities(recentOrders);
+        await setConfig(admin, { activities: newActivities });
+      }
+    } catch (seedError) {
+      console.error("[Dashboard] Activity seed failed (non-fatal):", seedError);
+    }
+  }
+
   const shopDomain = session.shop;
 
   // Find or create shop record
@@ -55,11 +98,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   }
 
-  return json({ settings: shop?.settings });
+  return json({ settings: shop?.settings, hasSubscription });
 };
 
 export default function Index() {
-  const { settings } = useLoaderData<typeof loader>();
+  const { settings, hasSubscription } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
   const isActive = settings?.popupEnabled ?? false;
@@ -77,17 +120,20 @@ export default function Index() {
                   <Text as="h2" variant="headingLg">
                     Social Proof Popups
                   </Text>
-                  <Badge tone={isActive ? "success" : "critical"}>
-                    {isActive ? "Active" : "Inactive"}
-                  </Badge>
+                  <InlineStack gap="200">
+                    <Badge tone={hasSubscription ? "success" : "warning"}>
+                      {hasSubscription ? "Pro" : "Free"}
+                    </Badge>
+                    <Badge tone={isActive ? "success" : "critical"}>
+                      {isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </InlineStack>
                 </InlineStack>
                 <Text as="p" variant="bodyMd" tone="subdued">
                   Display recent purchase notifications to build trust and
                   increase conversions.
                 </Text>
-                <Text as="p" variant="bodyMd">
-                  Total popups shown: --
-                </Text>
+
               </BlockStack>
             </Card>
           </Layout.Section>
@@ -106,12 +152,6 @@ export default function Index() {
                     fullWidth
                   >
                     Configure Settings
-                  </Button>
-                  <Button
-                    onClick={() => navigate("/app/analytics")}
-                    fullWidth
-                  >
-                    View Analytics
                   </Button>
                 </BlockStack>
               </BlockStack>

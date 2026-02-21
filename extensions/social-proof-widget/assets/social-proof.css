@@ -414,20 +414,6 @@
   margin-top: 4px;
 }
 
-/* Verified badge */
-.spp-popup-verified {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #22c55e;
-  margin-top: 8px;
-}
-
-.spp-verified-icon {
-  font-weight: bold;
-}
-
 /* Responsive - Mobile */
 @media (max-width: 480px) {
   .spp-popup {
@@ -450,10 +436,6 @@
   }
 
   .spp-popup-time {
-    font-size: 10px;
-  }
-
-  .spp-popup-verified {
     font-size: 10px;
   }
 }
@@ -492,9 +474,5 @@
 
   .spp-popup-close:hover {
     color: #b0b0b0;
-  }
-
-  .spp-popup-verified {
-    color: #22c55e;
   }
 }

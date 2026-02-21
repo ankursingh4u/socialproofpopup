@@ -48,8 +48,8 @@
         return;
       }
 
-      // Load demo activities from embedded config
-      this.activityQueue = this.config.demoActivities || [];
+      // Load activities from embedded config (real order data)
+      this.activityQueue = this.config.activities || [];
 
       // Set up container
       this.setupContainer();
@@ -194,9 +194,6 @@
             <p class="spp-popup-time">${activity.timeAgo}</p>
           </div>
         </div>
-        <div class="spp-popup-verified">
-          <span class="spp-verified-icon">&#10003;</span> Verified purchase
-        </div>
       `;
 
       // Close button handler with dismiss tracking
@@ -323,10 +320,17 @@
     }
 
     /**
-     * Show counter badge on product page (demo data)
+     * Show counter badge on product page (real data only)
      */
     showCounter() {
       if (this.config.pageType !== 'product' || !this.config.productId) return;
+
+      // Read real count from counterData in config
+      const counterData = this.config.counterData || {};
+      const count = counterData[this.config.productId] || 0;
+
+      // Don't show counter if no real purchases
+      if (count === 0) return;
 
       const addToCartBtn = this.findAddToCartButton();
       if (!addToCartBtn) {
@@ -334,14 +338,11 @@
         return;
       }
 
-      // Demo counter - random number between 5-50
-      const demoCount = Math.floor(Math.random() * 46) + 5;
-
-      const counter = this.createCounterElement(demoCount, '24 hours');
+      const counter = this.createCounterElement(count, '24 hours');
       this.counterElement = counter;
 
       addToCartBtn.parentNode.insertBefore(counter, addToCartBtn.nextSibling);
-      this.observeCounter(counter, demoCount);
+      this.observeCounter(counter, count);
     }
 
     /**
