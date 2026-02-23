@@ -44,19 +44,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing, admin } = await authenticate.admin(request);
+  const { billing, admin, session } = await authenticate.admin(request);
 
   // BUG 5: use shared isTestMode() from billing.server.ts — avoids duplicating
   // the env check and ensures both code paths always agree.
   const isTest = isTestMode();
 
-  // Derive returnUrl robustly: prefer SHOPIFY_APP_URL env var (set by `shopify app dev`),
-  // fall back to the origin of the incoming request URL for bare `npm run dev` scenarios
-  // where the env var is absent and would produce "undefined/app/billing".
-  const appUrl = process.env.SHOPIFY_APP_URL?.replace(/\/$/, "")
-    ?? new URL(request.url).origin;
-  // BUG 6: append ?activated=1 so the billing page shows an "activating" banner on return
-  const returnUrl = `${appUrl}/app/billing?activated=1`;
+  // Build returnUrl as an admin.shopify.com embedded-app URL so that after the
+  // merchant approves billing, Shopify redirects them back *inside* the admin
+  // iframe. Using the raw tunnel/vercel URL causes a blank screen with the new
+  // embedded auth strategy because token-exchange fails outside the iframe.
+  const shopName = session.shop.replace(".myshopify.com", "");
+  const apiKey = process.env.SHOPIFY_API_KEY!;
+  const returnUrl = `https://admin.shopify.com/store/${shopName}/apps/${apiKey}/app/billing?activated=1`;
 
   // Step 1: Guard — check for any existing subscription BEFORE requesting a new one.
   // billing.check() includes PENDING subscriptions (unlike the loader's custom
