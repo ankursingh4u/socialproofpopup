@@ -100,14 +100,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       $name: String!
       $returnUrl: URL!
       $test: Boolean
-      $trialDays: Int
       $lineItems: [AppSubscriptionLineItemInput!]!
     ) {
       appSubscriptionCreate(
         name: $name
         returnUrl: $returnUrl
         test: $test
-        trialDays: $trialDays
         lineItems: $lineItems
       ) {
         userErrors { field message }
@@ -120,7 +118,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         name: PLAN_MONTHLY,
         returnUrl,
         test: isTest,
-        trialDays: 7,
         lineItems: [
           {
             plan: {
@@ -163,8 +160,6 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (actionData?.confirmationUrl) {
-      // Navigate top-level window to Shopify billing page.
-      // window.open('_top') bypasses the App Bridge postMessage issue.
       window.open(actionData.confirmationUrl, "_top");
     }
   }, [actionData?.confirmationUrl]);
@@ -207,11 +202,6 @@ export default function BillingPage() {
                 <Text as="p" variant="bodyMd">
                   You are subscribed to the <strong>{currentSubscription.name}</strong> plan.
                 </Text>
-                {currentSubscription.trialDays && currentSubscription.trialDays > 0 && (
-                  <Badge tone="info">
-                    {`Trial: ${currentSubscription.trialDays} days remaining`}
-                  </Badge>
-                )}
               </BlockStack>
             ) : (
               <Text as="p" variant="bodyMd" tone="subdued">
@@ -236,10 +226,9 @@ export default function BillingPage() {
               <Divider />
 
               <List type="bullet">
-                <List.Item>Unlimited social proof popups</List.Item>
                 <List.Item>Fixed bottom-left position</List.Item>
                 <List.Item>Standard 5s delay / 4s display</List.Item>
-                <List.Item>Show on product, collection, homepage &amp; cart pages</List.Item>
+                <List.Item>Real order notifications</List.Item>
               </List>
 
               {!hasActivePayment && (
@@ -257,37 +246,29 @@ export default function BillingPage() {
                 </Text>
                 <InlineStack gap="200" blockAlign="center">
                   <Text as="span" variant="bodyMd">$9.99 / month</Text>
-                  <Badge tone="info">7-day free trial</Badge>
                 </InlineStack>
               </InlineStack>
 
               <Divider />
 
               <List type="bullet">
-                <List.Item>Everything in Free</List.Item>
                 <List.Item>Custom popup position (4 corners)</List.Item>
                 <List.Item>Custom delay (3–15s) &amp; display duration (2–8s)</List.Item>
                 <List.Item>Real order notifications</List.Item>
-                <List.Item>Priority support</List.Item>
               </List>
 
               {hasActivePayment ? (
                 <Badge tone="success">Current Plan</Badge>
               ) : (
-                <BlockStack gap="300">
-                  <Button
-                    variant="primary"
-                    size="large"
-                    fullWidth
-                    onClick={handleSubscribe}
-                    loading={isSubscribing}
-                  >
-                    Start 7-Day Free Trial
-                  </Button>
-                  <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                    You won't be charged during the 7-day trial period. Cancel anytime.
-                  </Text>
-                </BlockStack>
+                <Button
+                  variant="primary"
+                  size="large"
+                  fullWidth
+                  onClick={handleSubscribe}
+                  loading={isSubscribing}
+                >
+                  Get Pro
+                </Button>
               )}
             </BlockStack>
           </Card>
